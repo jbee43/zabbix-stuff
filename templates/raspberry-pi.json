@@ -1,0 +1,2550 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "e960332b3f6c46a1956486d4f3f99fce",
+        "name": "Templates/Server hardware"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "8b6c36094bcc4442a172e94a6464d167",
+        "template": "Raspberry Pi by Zabbix agent active",
+        "name": "Raspberry Pi by Zabbix agent active",
+        "description": "Comprehensive hardware monitoring for Raspberry Pi (all models).\n\nCollects temperatures (all thermal zones), voltages, throttle status,\nCPU/GPU frequencies, fan state, and NVMe temperatures via a single\nmaster item script.\n\nSetup:\n1. Deploy script: /etc/zabbix/scripts/rpi-hw-stats.sh (chmod +x)\n2. Deploy config: /etc/zabbix/zabbix_agent2.d/raspberry-pi.conf\n3. Ensure zabbix user can run vcgencmd: sudo usermod -aG video zabbix\n4. Restart agent: sudo systemctl restart zabbix-agent2\n\nOn Ubuntu, install vcgencmd: sudo apt install libraspberrypi-bin\nOn Raspberry Pi OS, vcgencmd is available by default.\n\nCompatible with: Pi 2, Pi 3, Pi 4, Pi 5, Pi Zero 2 W",
+        "groups": [
+          {
+            "name": "Templates/Server hardware"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "21a5642fb1d346fcb300200b1f79494c",
+            "name": "CPU frequency",
+            "type": "DEPENDENT",
+            "key": "rpi.cpu.freq",
+            "history": "7d",
+            "value_type": "FLOAT",
+            "trends": "90d",
+            "units": "MHz",
+            "description": "Current ARM CPU clock frequency.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.cpu_freq_khz"
+                ]
+              },
+              {
+                "type": "MULTIPLIER",
+                "parameters": [
+                  "0.001"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "40e11c54f66e4562a22718d99847fa3c",
+            "name": "CPU max frequency",
+            "type": "DEPENDENT",
+            "key": "rpi.cpu.freq.max",
+            "history": "1d",
+            "value_type": "FLOAT",
+            "trends": "0",
+            "units": "MHz",
+            "description": "Maximum configured ARM CPU clock frequency.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.cpu_freq_max_khz"
+                ]
+              },
+              {
+                "type": "MULTIPLIER",
+                "parameters": [
+                  "0.001"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "3b692672634941339c5e9e26654fd90e",
+            "name": "Fan speed",
+            "type": "DEPENDENT",
+            "key": "rpi.fan.rpm",
+            "history": "7d",
+            "trends": "90d",
+            "units": "rpm",
+            "description": "Active cooler fan speed read from /sys/class/hwmon/*/fan1_input. Returns 0 when no tach-capable fan is connected. The DISCARD_VALUE error handler keeps the item supported when running an older script that does not yet emit fan_rpm.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.fan_rpm"
+                ],
+                "error_handler": "DISCARD_VALUE"
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "cooling"
+              }
+            ]
+          },
+          {
+            "uuid": "12e0b2de55b44c8a8780a97781911b5a",
+            "name": "Fan state",
+            "type": "DEPENDENT",
+            "key": "rpi.fan.state",
+            "history": "7d",
+            "trends": "90d",
+            "description": "Pi 5 active cooler PWM state: 0=Off, 1=Low, 2=Medium, 3=High, 4=Full, 255=No fan.",
+            "valuemap": {
+              "name": "RPi fan state"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.fan_state"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "cooling"
+              }
+            ]
+          },
+          {
+            "uuid": "8ecc16e2590141fcb60660bf38033e1e",
+            "name": "GPU frequency",
+            "type": "DEPENDENT",
+            "key": "rpi.gpu.freq",
+            "history": "7d",
+            "value_type": "FLOAT",
+            "trends": "90d",
+            "units": "MHz",
+            "description": "Current VideoCore GPU clock frequency (vcgencmd measure_clock core).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.gpu_freq_hz"
+                ]
+              },
+              {
+                "type": "MULTIPLIER",
+                "parameters": [
+                  "1.0E-6"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "b4418e1ae6e847c3963104d122e7d573",
+            "name": "Hardware stats (raw)",
+            "type": "ZABBIX_ACTIVE",
+            "key": "rpi.hw.stats",
+            "delay": "2m",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item: JSON blob with all hardware statistics from rpi-hw-stats.sh. Not stored — dependent items extract individual metrics.",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "84f4bd2222e0453888d1a7d099788b87",
+                "expression": "nodata(/Raspberry Pi by Zabbix agent active/rpi.hw.stats,{$RPI.NODATA})=1",
+                "name": "No data received for {$RPI.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The rpi-hw-stats.sh script has not returned data. Check that the Zabbix agent is running and the script is deployed correctly.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "d602399513644a8cb5216966235f9a46",
+            "name": "Model",
+            "type": "DEPENDENT",
+            "key": "rpi.model",
+            "history": "1d",
+            "value_type": "CHAR",
+            "description": "Raspberry Pi model string from /proc/device-tree/model.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.model"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "system"
+              }
+            ]
+          },
+          {
+            "uuid": "ebb35d2107b64581a94eeb820d8c85c8",
+            "name": "Power consumption",
+            "type": "DEPENDENT",
+            "key": "rpi.power.watts",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "W",
+            "description": "Total system power computed from PMIC rails (sum of V x A across all rails reported by vcgencmd pmic_read_adc). Pi 5 only — older Pis without PMIC monitoring report 0. The DISCARD_VALUE error handler keeps the item supported when running an older script that does not yet emit power_watts.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.power_watts"
+                ],
+                "error_handler": "DISCARD_VALUE"
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "power"
+              }
+            ]
+          },
+          {
+            "uuid": "3692f85a0fba42b7aac82cdd5aa63251",
+            "name": "Throttle: ARM frequency capped",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.freq.capped",
+            "history": "30d",
+            "description": "Bit 1 of get_throttled: ARM frequency is currently capped.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 1) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "ce372565795a410c91f8d5aee915719e",
+                "expression": "last(/Raspberry Pi by Zabbix agent active/rpi.throttled.freq.capped)=1",
+                "name": "ARM frequency capped",
+                "priority": "WARNING",
+                "description": "The CPU frequency is being limited, likely due to voltage or thermal constraints.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "d0f9696f83cb431192d4e0eacf98ee16",
+            "name": "Throttle: frequency capping occurred since boot",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.freq.capped.occurred",
+            "history": "30d",
+            "description": "Bit 17 of get_throttled: ARM frequency capping has occurred since boot.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 17) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ]
+          },
+          {
+            "uuid": "f515a63de1154410b3cde4831e7cd4c6",
+            "name": "Throttle status (raw)",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.raw",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "Raw throttle bitmask from vcgencmd get_throttled (hex).\nBits 0-3: current state. Bits 16-19: occurred since boot.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "6h"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ]
+          },
+          {
+            "uuid": "2d619f512fc24fcfb59f31d196148ba9",
+            "name": "Throttle: soft temperature limit active",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.soft.temp.limit",
+            "history": "30d",
+            "description": "Bit 3 of get_throttled: soft temperature limit is currently active.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 3) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "0807d951f3bd4a7fb53b78bf476c829e",
+                "expression": "last(/Raspberry Pi by Zabbix agent active/rpi.throttled.soft.temp.limit)=1",
+                "name": "Soft temperature limit active",
+                "priority": "WARNING",
+                "description": "The soft temperature limit has been reached. The system is reducing performance to cool down.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "ba3bfe42f8bc44dbb5cf9a83286eb009",
+            "name": "Throttle: soft temp limit occurred since boot",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.soft.temp.limit.occurred",
+            "history": "30d",
+            "description": "Bit 19 of get_throttled: soft temperature limit has occurred since boot.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 19) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ]
+          },
+          {
+            "uuid": "fa79592ab566432b9e72b925ffb80af8",
+            "name": "Throttle: human-readable summary",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.summary",
+            "history": "30d",
+            "value_type": "CHAR",
+            "description": "Decoded throttle bitmask: lists which conditions are active now and which have occurred since boot. \"OK\" when no throttle bits are set.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "var raw = parseInt(value.replace('0x',''), 16);\nif (isNaN(raw) || raw === 0) return 'OK';\nvar now = [];\nif (raw & 0x1) now.push('under-voltage');\nif (raw & 0x2) now.push('ARM freq capped');\nif (raw & 0x4) now.push('throttled');\nif (raw & 0x8) now.push('soft temp limit');\nvar past = [];\nif (raw & 0x10000) past.push('under-voltage');\nif (raw & 0x20000) past.push('ARM freq capped');\nif (raw & 0x40000) past.push('throttled');\nif (raw & 0x80000) past.push('soft temp limit');\nvar parts = [];\nif (now.length) parts.push('NOW: ' + now.join(', '));\nif (past.length) parts.push('SINCE BOOT: ' + past.join(', '));\nreturn parts.join(' | ');"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "6h"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ]
+          },
+          {
+            "uuid": "6073d91749b54577997787b0b1cf0b93",
+            "name": "Throttle: currently throttled",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.throttled",
+            "history": "30d",
+            "description": "Bit 2 of get_throttled: SoC is currently throttled.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 2) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "461c3637eeeb436abfa1a49326dd6336",
+                "expression": "last(/Raspberry Pi by Zabbix agent active/rpi.throttled.throttled)=1",
+                "name": "Currently throttled",
+                "priority": "AVERAGE",
+                "description": "The SoC is actively throttling due to thermal or power constraints. Performance is degraded.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "b4904032145f468d95ebc8cd40ec53b4",
+            "name": "Throttle: throttling occurred since boot",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.throttled.occurred",
+            "history": "30d",
+            "description": "Bit 18 of get_throttled: throttling has occurred since boot.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 18) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ]
+          },
+          {
+            "uuid": "53364e23a5b84cfeb23cc41ea5001de9",
+            "name": "Throttle: under-voltage detected",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.undervoltage",
+            "history": "30d",
+            "description": "Bit 0 of get_throttled: under-voltage detected right now.\nIndicates the power supply is not delivering sufficient voltage.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 0) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "dbe17e1b6c6546b48e55ff3cb548c856",
+                "expression": "last(/Raspberry Pi by Zabbix agent active/rpi.throttled.undervoltage)=1",
+                "name": "Under-voltage detected",
+                "opdata": "Throttle bitmask: {ITEM.LASTVALUE}",
+                "priority": "HIGH",
+                "description": "The power supply is not delivering enough voltage. This causes instability, SD card corruption, and unexpected reboots. Replace the power supply or reduce load.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "802f60d6ee384c64b863cbbf65e508a8",
+            "name": "Throttle: under-voltage occurred since boot",
+            "type": "DEPENDENT",
+            "key": "rpi.throttled.undervoltage.occurred",
+            "history": "30d",
+            "description": "Bit 16 of get_throttled: under-voltage has occurred at least once since boot. Sticky flag — stays 1 until reboot.",
+            "valuemap": {
+              "name": "Throttle status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.throttled"
+                ]
+              },
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "return (parseInt(value.replace('0x',''),16) >> 16) & 1;"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "throttle"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "855159da55ad43a5b4bb975b7b6e18f5",
+                "expression": "last(/Raspberry Pi by Zabbix agent active/rpi.throttled.undervoltage.occurred)=1",
+                "name": "Under-voltage has occurred since boot",
+                "priority": "WARNING",
+                "description": "Under-voltage was detected at some point since boot. The power supply may be inadequate for the current load. Investigate even if the current state is normal.",
+                "manual_close": "YES",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "discovery_rules": [
+          {
+            "uuid": "b12333dfb97e4bd5993396782b40fe84",
+            "name": "NVMe device discovery",
+            "type": "DEPENDENT",
+            "key": "rpi.nvme.discovery",
+            "description": "Discovers NVMe devices connected via M.2 HAT or USB adapter. Returns empty on Pis without NVMe storage.",
+            "item_prototypes": [
+              {
+                "uuid": "5a6b8b8afa434cad853e72708703c421",
+                "name": "NVMe temperature: {#NVME.DEVICE}",
+                "type": "DEPENDENT",
+                "key": "rpi.nvme.temp[{#NVME.DEVICE}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "°C",
+                "description": "NVMe drive temperature for {#NVME.DEVICE} from hwmon sysfs.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.nvme[?(@.device==\"{#NVME.DEVICE}\")].temp_mc.first()"
+                    ]
+                  },
+                  {
+                    "type": "MULTIPLIER",
+                    "parameters": [
+                      "0.001"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "rpi.hw.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "device",
+                    "value": "{#NVME.DEVICE}"
+                  }
+                ],
+                "trigger_prototypes": [
+                  {
+                    "uuid": "cd80a0e477184a2eaf146c7e9587dc29",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.nvme.temp[{#NVME.DEVICE}],5m)>{$RPI.NVME.TEMP.DISASTER}",
+                    "name": "NVMe {#NVME.DEVICE}: Temperature > {$RPI.NVME.TEMP.DISASTER}°C",
+                    "priority": "DISASTER",
+                    "description": "NVMe drive {#NVME.DEVICE} has exceeded the disaster temperature threshold. Data loss risk.",
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "availability"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "121d071b765942029593ef4238e4b6cc",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.nvme.temp[{#NVME.DEVICE}],5m)>{$RPI.NVME.TEMP.HIGH}",
+                    "name": "NVMe {#NVME.DEVICE}: Temperature > {$RPI.NVME.TEMP.HIGH}°C",
+                    "priority": "HIGH",
+                    "description": "NVMe drive {#NVME.DEVICE} is running hot. Check airflow around the M.2 HAT.",
+                    "dependencies": [
+                      {
+                        "name": "NVMe {#NVME.DEVICE}: Temperature > {$RPI.NVME.TEMP.DISASTER}°C",
+                        "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.nvme.temp[{#NVME.DEVICE}],5m)>{$RPI.NVME.TEMP.DISASTER}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "8d0a2b60f72d4b069e7df37b26464f97",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.nvme.temp[{#NVME.DEVICE}],5m)>{$RPI.NVME.TEMP.WARNING}",
+                    "name": "NVMe {#NVME.DEVICE}: Temperature > {$RPI.NVME.TEMP.WARNING}°C",
+                    "priority": "WARNING",
+                    "description": "NVMe drive {#NVME.DEVICE} temperature is elevated.",
+                    "dependencies": [
+                      {
+                        "name": "NVMe {#NVME.DEVICE}: Temperature > {$RPI.NVME.TEMP.HIGH}°C",
+                        "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.nvme.temp[{#NVME.DEVICE}],5m)>{$RPI.NVME.TEMP.HIGH}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "8a593a4a2eb74480b3dec7291e540ead",
+                "name": "NVMe temperature: {#NVME.DEVICE}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "EF5350",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Raspberry Pi by Zabbix agent active",
+                      "key": "rpi.nvme.temp[{#NVME.DEVICE}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#NVME.DEVICE}",
+                "path": "$.device"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.nvme"
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "c0e9203015064c5691dacceb61a3316e",
+            "name": "Thermal zone discovery",
+            "type": "DEPENDENT",
+            "key": "rpi.thermal.discovery",
+            "description": "Discovers all thermal zones from /sys/class/thermal/thermal_zone*. Pi 5 has cpu-thermal, gpu-thermal, rp1_adc-thermal. Pi 2/3/4 typically has cpu-thermal only.",
+            "item_prototypes": [
+              {
+                "uuid": "4ed1c712ba71452dbadf9562c470f827",
+                "name": "Temperature: {#ZONE.TYPE}",
+                "type": "DEPENDENT",
+                "key": "rpi.thermal.temp[{#ZONE}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "°C",
+                "description": "Temperature for thermal zone {#ZONE} ({#ZONE.TYPE}) in degrees Celsius.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.thermal[?(@.zone=={#ZONE})].temp_mc.first()"
+                    ]
+                  },
+                  {
+                    "type": "MULTIPLIER",
+                    "parameters": [
+                      "0.001"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "rpi.hw.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "thermal-zone",
+                    "value": "{#ZONE.TYPE}"
+                  }
+                ],
+                "trigger_prototypes": [
+                  {
+                    "uuid": "ce9b26eea1014dcba907697a997814c6",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.AVERAGE}",
+                    "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.AVERAGE}°C",
+                    "priority": "AVERAGE",
+                    "description": "Thermal zone {#ZONE.TYPE} has exceeded the average threshold. Performance may be affected soon.",
+                    "dependencies": [
+                      {
+                        "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.HIGH}°C",
+                        "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.HIGH}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "c3ac2637e8e64859b3b59bd2091ca131",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.DISASTER}",
+                    "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.DISASTER}°C",
+                    "priority": "DISASTER",
+                    "description": "Thermal zone {#ZONE.TYPE} has exceeded the disaster threshold. Hardware damage is possible. Shut down the device or improve cooling immediately.",
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "availability"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "378b42ad485b41ea88dbe72d61e9c718",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.HIGH}",
+                    "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.HIGH}°C",
+                    "priority": "HIGH",
+                    "description": "Thermal zone {#ZONE.TYPE} has exceeded the high threshold. Thermal throttling is imminent or active.",
+                    "dependencies": [
+                      {
+                        "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.DISASTER}°C",
+                        "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.DISASTER}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "09d26a4ee2c649688e697df6d91f3602",
+                    "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.WARNING}",
+                    "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.WARNING}°C",
+                    "priority": "WARNING",
+                    "description": "Thermal zone {#ZONE.TYPE} is getting warm. Check ambient temperature and airflow.",
+                    "dependencies": [
+                      {
+                        "name": "{#ZONE.TYPE}: Temperature > {$RPI.TEMP.AVERAGE}°C",
+                        "expression": "avg(/Raspberry Pi by Zabbix agent active/rpi.thermal.temp[{#ZONE}],5m)>{$RPI.TEMP.AVERAGE}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "594e321d82984743b2ca505b53ba5fc2",
+                "name": "Temperature: {#ZONE.TYPE}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "FF6F00",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Raspberry Pi by Zabbix agent active",
+                      "key": "rpi.thermal.temp[{#ZONE}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#ZONE.TYPE}",
+                "path": "$.type"
+              },
+              {
+                "lld_macro": "{#ZONE}",
+                "path": "$.zone"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.thermal"
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "b2862224315d418798c187c47bc43765",
+            "name": "Voltage discovery",
+            "type": "DEPENDENT",
+            "key": "rpi.voltage.discovery",
+            "description": "Discovers voltage rails reported by vcgencmd: core, sdram_c, sdram_i, sdram_p. Returns empty if vcgencmd is unavailable.",
+            "item_prototypes": [
+              {
+                "uuid": "7db4f4b0881a42a8b2553d623410beb5",
+                "name": "Voltage: {#VOLTAGE.TYPE}",
+                "type": "DEPENDENT",
+                "key": "rpi.voltage[{#VOLTAGE.TYPE}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "V",
+                "description": "Voltage for rail {#VOLTAGE.TYPE} from vcgencmd measure_volts.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.voltages[?(@.type==\"{#VOLTAGE.TYPE}\")].volts.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "rpi.hw.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "voltage"
+                  },
+                  {
+                    "tag": "rail",
+                    "value": "{#VOLTAGE.TYPE}"
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "a9a8605faaf74dcebdd1e5583c0ca08f",
+                "name": "Voltage: {#VOLTAGE.TYPE}",
+                "ymin_type_1": "FIXED",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "00ACC1",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Raspberry Pi by Zabbix agent active",
+                      "key": "rpi.voltage[{#VOLTAGE.TYPE}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "rpi.hw.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#VOLTAGE.TYPE}",
+                "path": "$.type"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.voltages"
+                ]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "hardware"
+          },
+          {
+            "tag": "target",
+            "value": "raspberry-pi"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$RPI.NODATA}",
+            "value": "10m",
+            "description": "No-data timeout for the master item."
+          },
+          {
+            "macro": "{$RPI.NVME.TEMP.DISASTER}",
+            "value": "80",
+            "description": "NVMe disaster temperature threshold (°C)."
+          },
+          {
+            "macro": "{$RPI.NVME.TEMP.HIGH}",
+            "value": "70",
+            "description": "NVMe high temperature threshold (°C)."
+          },
+          {
+            "macro": "{$RPI.NVME.TEMP.WARNING}",
+            "value": "60",
+            "description": "NVMe warning temperature threshold (°C)."
+          },
+          {
+            "macro": "{$RPI.TEMP.AVERAGE}",
+            "value": "75",
+            "description": "SoC average temperature threshold (°C)."
+          },
+          {
+            "macro": "{$RPI.TEMP.DISASTER}",
+            "value": "85",
+            "description": "SoC disaster temperature threshold (°C). Pi 5 throttles at 85°C."
+          },
+          {
+            "macro": "{$RPI.TEMP.HIGH}",
+            "value": "80",
+            "description": "SoC high temperature threshold (°C)."
+          },
+          {
+            "macro": "{$RPI.TEMP.WARNING}",
+            "value": "70",
+            "description": "SoC warning temperature threshold (°C)."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "b90da7bf46d046f995e62af56e4e1ad7",
+            "name": "Raspberry Pi",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Model",
+                    "width": "36",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.model"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Throttle: under-voltage now",
+                    "y": "2",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.undervoltage"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Throttle summary",
+                    "y": "5",
+                    "width": "72",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.summary"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "problemsbysv",
+                    "name": "Active problems",
+                    "y": "8",
+                    "width": "72",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPIPB"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Throttle: ARM freq capped now",
+                    "x": "18",
+                    "y": "2",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.freq.capped"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Power consumption",
+                    "x": "36",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "down_color",
+                        "value": "3DC51D"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.power.watts"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "updown_color",
+                        "value": "878787"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "up_color",
+                        "value": "FC5A5A"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Throttle: throttled now",
+                    "x": "36",
+                    "y": "2",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.throttled"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Fan state",
+                    "x": "54",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.fan.state"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Throttle: soft temp limit now",
+                    "x": "54",
+                    "y": "2",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.soft.temp.limit"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Temperatures",
+                "widgets": [
+                  {
+                    "type": "svggraph",
+                    "name": "Thermal zones",
+                    "width": "72",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FF465C"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Temperature: *"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPITH"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "NVMe",
+                    "y": "6",
+                    "width": "72",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "5D4037"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "NVMe temperature: *"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "UCKMU"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Power",
+                "widgets": [
+                  {
+                    "type": "svggraph",
+                    "name": "Power consumption",
+                    "width": "72",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FFA000"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Power consumption"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPIPW"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Voltage rails",
+                    "y": "6",
+                    "width": "72",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "4DB6AC"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Voltage: *"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPIVL"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Throttle status",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Decoded throttle summary",
+                    "width": "72",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.summary"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Raw bitmask",
+                    "y": "2",
+                    "width": "36",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.raw"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Now: under-voltage",
+                    "y": "4",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.undervoltage"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Since boot: under-voltage",
+                    "y": "7",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.undervoltage.occurred"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Now: ARM freq capped",
+                    "x": "18",
+                    "y": "4",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.freq.capped"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Since boot: ARM freq capped",
+                    "x": "18",
+                    "y": "7",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.freq.capped.occurred"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Power consumption (now)",
+                    "x": "36",
+                    "y": "2",
+                    "width": "36",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.power.watts"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Now: throttled",
+                    "x": "36",
+                    "y": "4",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.throttled"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Since boot: throttled",
+                    "x": "36",
+                    "y": "7",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.throttled.occurred"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Now: soft temp limit",
+                    "x": "54",
+                    "y": "4",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.soft.temp.limit"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Since boot: soft temp limit",
+                    "x": "54",
+                    "y": "7",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.throttled.soft.temp.limit.occurred"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Performance",
+                "widgets": [
+                  {
+                    "type": "svggraph",
+                    "name": "CPU and GPU frequency",
+                    "width": "72",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "42A5F5"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "CPU frequency"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.1.color",
+                        "value": "AB47BC"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.1.items.0",
+                        "value": "GPU frequency"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.1.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPICG"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Fan speed",
+                    "y": "6",
+                    "width": "36",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "607D8B"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Fan speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "RPIFG"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Fan state",
+                    "x": "36",
+                    "y": "6",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.fan.state"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "CPU frequency",
+                    "x": "36",
+                    "y": "9",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.cpu.freq"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Fan speed (now)",
+                    "x": "54",
+                    "y": "6",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.fan.rpm"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "GPU frequency",
+                    "x": "54",
+                    "y": "9",
+                    "width": "18",
+                    "height": "3",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Raspberry Pi by Zabbix agent active",
+                          "key": "rpi.gpu.freq"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "valuemaps": [
+          {
+            "uuid": "a5928fc8a88f410f8cc7cb83666e1c4a",
+            "name": "RPi fan state",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "Off"
+              },
+              {
+                "value": "1",
+                "newvalue": "Low"
+              },
+              {
+                "value": "2",
+                "newvalue": "Medium"
+              },
+              {
+                "value": "3",
+                "newvalue": "High"
+              },
+              {
+                "value": "4",
+                "newvalue": "Full"
+              },
+              {
+                "value": "255",
+                "newvalue": "N/A"
+              }
+            ]
+          },
+          {
+            "uuid": "8b4e6cf44b8543e696c8fbf7736e3c69",
+            "name": "Throttle status",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "No"
+              },
+              {
+                "value": "1",
+                "newvalue": "Yes"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "graphs": [
+      {
+        "uuid": "f39c039cfa87489da1a87498b03c0a29",
+        "name": "CPU and GPU frequency",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "42A5F5",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "Raspberry Pi by Zabbix agent active",
+              "key": "rpi.cpu.freq"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "GRADIENT_LINE",
+            "color": "AB47BC",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "Raspberry Pi by Zabbix agent active",
+              "key": "rpi.gpu.freq"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "7acefb715bed4f7b994d504571596840",
+        "name": "Fan speed",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "26A69A",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "Raspberry Pi by Zabbix agent active",
+              "key": "rpi.fan.rpm"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "d63abbbccf284fd2aaf8d3bdb6f35edc",
+        "name": "Power consumption",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "FFA000",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "Raspberry Pi by Zabbix agent active",
+              "key": "rpi.power.watts"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

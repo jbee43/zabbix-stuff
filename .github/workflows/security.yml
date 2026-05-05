@@ -1,0 +1,51 @@
+---
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: Security scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for gitleaks range/full scans
+
+      - name: Install gitleaks
+        run: |
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64)  asset="linux_x64" ;;
+            aarch64) asset="linux_arm64" ;;
+            armv7l)  asset="linux_armv7" ;;
+            *) echo "Unsupported arch: $arch"; exit 1 ;;
+          esac
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${asset}.tar.gz"
+          echo "Downloading $url"
+          curl -fsSL "$url" | sudo tar xz -C /usr/local/bin gitleaks
+
+      - name: Scan PR range
+        if: github.event_name == 'pull_request'
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          echo "Scanning ${base}..${head}"
+          gitleaks detect --source . --log-opts "${base}..${head}" --verbose
+
+      - name: Scan full history
+        if: github.event_name != 'pull_request'
+        run: gitleaks detect --source . --verbose
+
+      - name: Lint template credentials
+        # SECRET_TEXT / plaintext-credential checks are enforced by lint-templates.py
+        # (runs here too so a failed credential check blocks the security workflow).
+        run: python3 scripts/ci/lint-templates.py

@@ -1,0 +1,1597 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "7df96b18c230490a9a0a9e2307226338",
+        "name": "Templates"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "758daaf7eda2498b9ae5d22e487910d9",
+        "template": "EVE Online by HTTP",
+        "name": "EVE Online by HTTP",
+        "description": "EVE Online game monitoring via public APIs.\n\nNo agent required — uses HTTP agent items.\n\nMetrics:\n- Tranquility status (description, VIP mode, last server start)\n- Player count\n- PLEX (global market) & Large Skill Injector average prices\n- Active incursions and sovereignty campaigns\n- Faction Warfare per-faction stats (pilots, systems controlled, kills, victory points)\n\nData sources:\n- ESI API (esi.evetech.net): status, incursions, sovereignty, FW stats, market prices\n- EVE status page (status.eveonline.com): public status description\n\nNote: PLEX has used a single global market since the 2018 PLEX Vault migration. Prices come from ESI /markets/prices/ which returns CCP-calculated cross-region averages (smoothed, not real-time best ask).",
+        "groups": [
+          {
+            "name": "Templates"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "c0e1d2a3b4c54f8e9d8c7b6a5f4e3d21",
+            "name": "ESI status raw",
+            "type": "HTTP_AGENT",
+            "key": "eve.esi.status",
+            "delay": "5m",
+            "history": "0",
+            "trends": "0",
+            "value_type": "TEXT",
+            "description": "Master item: raw response from ESI /status (Tranquility). Player count, server start time and VIP flag are extracted by dependent items.",
+            "url": "https://esi.evetech.net/latest/status",
+            "query_fields": [
+              {
+                "name": "datasource",
+                "value": "tranquility"
+              }
+            ],
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "status"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "c8d9e0f1a2b34c8e9d8c7b6a5f4e3d29",
+                "expression": "nodata(/EVE Online by HTTP/eve.esi.status,{$EVE.NODATA})=1",
+                "name": "No data from ESI /status for {$EVE.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "HIGH",
+                "description": "ESI /status endpoint has not returned data within the configured no-data window. ESI may be unreachable or down.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc324a8e9d8c7b6a5f4e3003",
+            "name": "Faction Warfare: Amarr Empire kills (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.amarr.kills_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Kills credited to the Amarr Empire militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500003)].kills.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Amarr"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc304a8e9d8c7b6a5f4e3001",
+            "name": "Faction Warfare: Amarr Empire pilots",
+            "type": "DEPENDENT",
+            "key": "eve.fw.amarr.pilots",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Active pilots enlisted in the Amarr Empire militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500003)].pilots.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Amarr"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc314a8e9d8c7b6a5f4e3002",
+            "name": "Faction Warfare: Amarr Empire systems controlled",
+            "type": "DEPENDENT",
+            "key": "eve.fw.amarr.systems_controlled",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Solar systems currently held by the Amarr Empire militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500003)].systems_controlled.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Amarr"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc334a8e9d8c7b6a5f4e3004",
+            "name": "Faction Warfare: Amarr Empire victory points (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.amarr.victory_points_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Victory points earned by the Amarr Empire militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500003)].victory_points.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Amarr"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc364a8e9d8c7b6a5f4e3007",
+            "name": "Faction Warfare: Caldari State kills (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.caldari.kills_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Kills credited to the Caldari State militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500001)].kills.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Caldari"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc344a8e9d8c7b6a5f4e3005",
+            "name": "Faction Warfare: Caldari State pilots",
+            "type": "DEPENDENT",
+            "key": "eve.fw.caldari.pilots",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Active pilots enlisted in the Caldari State militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500001)].pilots.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Caldari"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc354a8e9d8c7b6a5f4e3006",
+            "name": "Faction Warfare: Caldari State systems controlled",
+            "type": "DEPENDENT",
+            "key": "eve.fw.caldari.systems_controlled",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Solar systems currently held by the Caldari State militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500001)].systems_controlled.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Caldari"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc374a8e9d8c7b6a5f4e3008",
+            "name": "Faction Warfare: Caldari State victory points (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.caldari.victory_points_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Victory points earned by the Caldari State militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500001)].victory_points.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Caldari"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3a4a8e9d8c7b6a5f4e300b",
+            "name": "Faction Warfare: Gallente Federation kills (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.gallente.kills_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Kills credited to the Gallente Federation militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500004)].kills.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Gallente"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc384a8e9d8c7b6a5f4e3009",
+            "name": "Faction Warfare: Gallente Federation pilots",
+            "type": "DEPENDENT",
+            "key": "eve.fw.gallente.pilots",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Active pilots enlisted in the Gallente Federation militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500004)].pilots.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Gallente"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc394a8e9d8c7b6a5f4e300a",
+            "name": "Faction Warfare: Gallente Federation systems controlled",
+            "type": "DEPENDENT",
+            "key": "eve.fw.gallente.systems_controlled",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Solar systems currently held by the Gallente Federation militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500004)].systems_controlled.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Gallente"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3b4a8e9d8c7b6a5f4e300c",
+            "name": "Faction Warfare: Gallente Federation victory points (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.gallente.victory_points_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Victory points earned by the Gallente Federation militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500004)].victory_points.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Gallente"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3e4a8e9d8c7b6a5f4e300f",
+            "name": "Faction Warfare: Minmatar Republic kills (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.minmatar.kills_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Kills credited to the Minmatar Republic militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500002)].kills.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Minmatar"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3c4a8e9d8c7b6a5f4e300d",
+            "name": "Faction Warfare: Minmatar Republic pilots",
+            "type": "DEPENDENT",
+            "key": "eve.fw.minmatar.pilots",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Active pilots enlisted in the Minmatar Republic militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500002)].pilots.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Minmatar"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3d4a8e9d8c7b6a5f4e300e",
+            "name": "Faction Warfare: Minmatar Republic systems controlled",
+            "type": "DEPENDENT",
+            "key": "eve.fw.minmatar.systems_controlled",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Solar systems currently held by the Minmatar Republic militia.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500002)].systems_controlled.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Minmatar"
+              }
+            ]
+          },
+          {
+            "uuid": "aa11bb22cc3f4a8e9d8c7b6a5f4e3010",
+            "name": "Faction Warfare: Minmatar Republic victory points (yesterday)",
+            "type": "DEPENDENT",
+            "key": "eve.fw.minmatar.victory_points_yesterday",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Victory points earned by the Minmatar Republic militia in the previous day (resets daily).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.faction_id==500002)].victory_points.yesterday.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.fw.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "faction",
+                "value": "Minmatar"
+              }
+            ]
+          },
+          {
+            "uuid": "a4ee3c751e6e4515bebd3b51221788a1",
+            "name": "Faction Warfare stats raw",
+            "type": "HTTP_AGENT",
+            "key": "eve.fw.stats",
+            "delay": "30m",
+            "history": "0",
+            "trends": "0",
+            "value_type": "TEXT",
+            "description": "Master item: raw response from ESI /fw/stats. Per-faction pilots, systems controlled, kills and victory points are extracted by dependent items.",
+            "url": "https://esi.evetech.net/latest/fw/stats/",
+            "query_fields": [
+              {
+                "name": "datasource",
+                "value": "tranquility"
+              }
+            ],
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "faction-warfare"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "e0f1a2b3c4d54e8e9d8c7b6a5f4e3d2b",
+                "expression": "nodata(/EVE Online by HTTP/eve.fw.stats,{$EVE.NODATA})=1",
+                "name": "No data from ESI /fw/stats for {$EVE.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "AVERAGE",
+                "description": "Faction Warfare stats endpoint has not returned data within the configured no-data window.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "f5a6b7c8d9e04f8e9d8c7b6a5f4e3d26",
+            "name": "Active incursions",
+            "type": "HTTP_AGENT",
+            "key": "eve.incursions.count",
+            "delay": "30m",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Number of active incursions across New Eden (ESI /incursions/).",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": ["return JSON.parse(value).length;"]
+              }
+            ],
+            "url": "https://esi.evetech.net/latest/incursions/",
+            "query_fields": [
+              {
+                "name": "datasource",
+                "value": "tranquility"
+              }
+            ],
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "incursions"
+              }
+            ]
+          },
+          {
+            "uuid": "d3e4f5a6b7c84d8e9d8c7b6a5f4e3d24",
+            "name": "Market prices raw",
+            "type": "HTTP_AGENT",
+            "key": "eve.market.prices",
+            "delay": "30m",
+            "history": "0",
+            "trends": "0",
+            "value_type": "TEXT",
+            "description": "Master item: raw response from ESI /markets/prices/. Returns CCP-calculated average and adjusted prices per type ID across the entire game (covers global-market items like PLEX as well as regional commodities). CCP-cached for 1h. Dependent items extract specific prices.",
+            "url": "https://esi.evetech.net/latest/markets/prices/",
+            "query_fields": [
+              {
+                "name": "datasource",
+                "value": "tranquility"
+              }
+            ],
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "market"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "d9e0f1a2b3c44d8e9d8c7b6a5f4e3d2a",
+                "expression": "nodata(/EVE Online by HTTP/eve.market.prices,{$EVE.NODATA})=1",
+                "name": "No data from ESI /markets/prices/ for {$EVE.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "AVERAGE",
+                "description": "ESI /markets/prices/ endpoint has not returned data within the configured no-data window.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "d38ec06dda2c423abb360c8a2f8fb891",
+            "name": "PLEX price",
+            "type": "DEPENDENT",
+            "key": "eve.market.plex.price",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ISK",
+            "description": "Average price of 1 PLEX (type 44992) from ESI /markets/prices/. PLEX uses a single global market (no regional orders since the 2018 PLEX Vault migration), so this is CCP's authoritative cross-region average — a smoothed value, not a real-time best ask.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.type_id==44992)].average_price.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.market.prices"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "market"
+              },
+              {
+                "tag": "scope",
+                "value": "global"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "88b6cca6de374559901805d6c8d6abe3",
+                "expression": "last(/EVE Online by HTTP/eve.market.plex.price)<{$PLEX.PRICE.MIN}",
+                "name": "PLEX price below {$PLEX.PRICE.MIN} ISK",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "INFO",
+                "description": "PLEX price has dropped below the configured minimum threshold ({$PLEX.PRICE.MIN} ISK).",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "e4f5a6b7c8d94e8e9d8c7b6a5f4e3d25",
+            "name": "Large Skill Injector price",
+            "type": "DEPENDENT",
+            "key": "eve.market.skill_injector.price",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ISK",
+            "description": "Average price of 1 Large Skill Injector (type 40520) from ESI /markets/prices/. Cross-region smoothed average from CCP, not a real-time best ask.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$[?(@.type_id==40520)].average_price.first()"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.market.prices"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "market"
+              },
+              {
+                "tag": "scope",
+                "value": "global"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "f1a2b3c4d5e64f8e9d8c7b6a5f4e3d2c",
+                "expression": "last(/EVE Online by HTTP/eve.market.skill_injector.price)<{$EVE.SKILL_INJECTOR.PRICE.MIN}",
+                "name": "Large Skill Injector price below {$EVE.SKILL_INJECTOR.PRICE.MIN} ISK",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "INFO",
+                "description": "Large Skill Injector price has dropped below the configured minimum threshold.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "a6b7c8d9e0f14a8e9d8c7b6a5f4e3d27",
+            "name": "Active sovereignty campaigns",
+            "type": "HTTP_AGENT",
+            "key": "eve.sov.campaigns.count",
+            "delay": "30m",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Number of active sovereignty campaigns across nullsec (ESI /sovereignty/campaigns/).",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": ["return JSON.parse(value).length;"]
+              }
+            ],
+            "url": "https://esi.evetech.net/latest/sovereignty/campaigns/",
+            "query_fields": [
+              {
+                "name": "datasource",
+                "value": "tranquility"
+              }
+            ],
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "sovereignty"
+              }
+            ]
+          },
+          {
+            "uuid": "7538f00ee5d04e2595d69857c234942b",
+            "name": "Tranquility status description",
+            "type": "HTTP_AGENT",
+            "key": "eve.status.description",
+            "delay": "5m",
+            "history": "7d",
+            "value_type": "TEXT",
+            "description": "Current EVE Online server status from the official status page API. Expected value: \"All Systems Operational\".",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.body.status.description"]
+              }
+            ],
+            "url": "https://status.eveonline.com/api/v2/status.json",
+            "output_format": "JSON",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "status"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "e002ab134e284014b3424964f81ed067",
+                "expression": "last(/EVE Online by HTTP/eve.status.description)<>\"All Systems Operational\" and (time()<110000 or time()>113000)",
+                "name": "Tranquility status not operational — check status.eveonline.com",
+                "opdata": "{ITEM.LASTVALUE1}",
+                "priority": "HIGH",
+                "description": "EVE Online server status is not \"All Systems Operational\". The time window exclusion (11:00–11:30 UTC) avoids false alerts during daily downtime.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "49480039cd744c98be13e71c3c43b6a8",
+            "name": "Player count",
+            "type": "DEPENDENT",
+            "key": "eve.status.playerCount",
+            "history": "14d",
+            "value_type": "UNSIGNED",
+            "description": "Current number of players online on Tranquility (extracted from ESI /status).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.players"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.esi.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "status"
+              }
+            ]
+          },
+          {
+            "uuid": "a2b3c4d5e6f74c8e9d8c7b6a5f4e3d23",
+            "name": "Server start time (last TQ tick)",
+            "type": "DEPENDENT",
+            "key": "eve.status.uptime",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "units": "unixtime",
+            "description": "Unix timestamp of the last Tranquility startup, derived from ESI /status start_time. Stored as unixtime so dashboards render the local datetime automatically.",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": ["return Math.floor(Date.parse(JSON.parse(value).start_time) / 1000);"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.esi.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "status"
+              }
+            ]
+          },
+          {
+            "uuid": "b1c2d3e4f5a64b8e9d8c7b6a5f4e3d22",
+            "name": "VIP mode",
+            "type": "DEPENDENT",
+            "key": "eve.status.vip",
+            "history": "30d",
+            "value_type": "UNSIGNED",
+            "description": "Whether Tranquility is in VIP mode (login restricted to a small allowlist of players, typically post-DT recovery or incident response). 0 = normal, 1 = VIP.",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": ["return JSON.parse(value).vip ? 1 : 0;"]
+              }
+            ],
+            "master_item": {
+              "key": "eve.esi.status"
+            },
+            "valuemap": {
+              "name": "EVE VIP mode"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "status"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "b7c8d9e0f1a24b8e9d8c7b6a5f4e3d28",
+                "expression": "last(/EVE Online by HTTP/eve.status.vip)=1",
+                "name": "Tranquility is in VIP mode (login restricted)",
+                "opdata": "{ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "ESI reports Tranquility is in VIP mode — only allowlisted players can log in. Typically follows post-DT recovery or active incident response.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "game"
+          },
+          {
+            "tag": "target",
+            "value": "eve-online"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$EVE.NODATA}",
+            "value": "1h",
+            "description": "No-data timeout for master HTTP items. Set higher than the slowest collection interval (30m for FW / sovereignty) to avoid false alerts during transient API failures."
+          },
+          {
+            "macro": "{$EVE.SKILL_INJECTOR.PRICE.MIN}",
+            "value": "700000000",
+            "description": "Minimum Large Skill Injector price threshold (ISK). Triggers an INFO alert when the cross-region average price drops below this value."
+          },
+          {
+            "macro": "{$PLEX.PRICE.MIN}",
+            "value": "4500000",
+            "description": "Minimum PLEX price threshold (ISK). Triggers an INFO alert when the global average price drops below this value."
+          }
+        ],
+        "valuemaps": [
+          {
+            "uuid": "c1d2e3f4a5b64c8e9d8c7b6a5f4e3da1",
+            "name": "EVE VIP mode",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "Normal"
+              },
+              {
+                "value": "1",
+                "newvalue": "VIP (login restricted)"
+              }
+            ]
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "08274d44b4714f83ad521c20751eede6",
+            "name": "EVE Online",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Status",
+                    "width": "36",
+                    "height": "2",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "key": "eve.status.description"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "VIP mode",
+                    "x": "36",
+                    "width": "12",
+                    "height": "2",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "key": "eve.status.vip"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Last server start",
+                    "x": "48",
+                    "width": "24",
+                    "height": "2",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "key": "eve.status.uptime"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Active incursions",
+                    "y": "2",
+                    "width": "36",
+                    "height": "2",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "key": "eve.incursions.count"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Active sovereignty campaigns",
+                    "x": "36",
+                    "y": "2",
+                    "width": "36",
+                    "height": "2",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "key": "eve.sov.campaigns.count"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Player count",
+                    "y": "4",
+                    "width": "72",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Player count"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "QHMEK"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "PLEX price",
+                    "y": "9",
+                    "width": "36",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "PLEX price"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "ZBEOV"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Large Skill Injector price",
+                    "x": "36",
+                    "y": "9",
+                    "width": "36",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Large Skill Injector price"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SKINJ"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Faction Warfare",
+                "widgets": [
+                  {
+                    "type": "graph",
+                    "name": "Systems controlled",
+                    "width": "36",
+                    "height": "7",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Faction Warfare: systems controlled"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "FWSYS"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Pilots",
+                    "x": "36",
+                    "width": "36",
+                    "height": "7",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Faction Warfare: pilots"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "FWPIL"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Kills (yesterday)",
+                    "y": "7",
+                    "width": "36",
+                    "height": "7",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Faction Warfare: kills (yesterday)"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "FWKIL"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Victory points (yesterday)",
+                    "x": "36",
+                    "y": "7",
+                    "width": "36",
+                    "height": "7",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "EVE Online by HTTP",
+                          "name": "Faction Warfare: victory points (yesterday)"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "FWVP1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "graphs": [
+      {
+        "uuid": "aa22cc33dd464a8e9d8c7b6a5f4e4003",
+        "name": "Faction Warfare: kills (yesterday)",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "BOLD_LINE",
+            "color": "FFB300",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.amarr.kills_yesterday"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "BOLD_LINE",
+            "color": "1976D2",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.caldari.kills_yesterday"
+            }
+          },
+          {
+            "sortorder": "2",
+            "drawtype": "BOLD_LINE",
+            "color": "43A047",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.gallente.kills_yesterday"
+            }
+          },
+          {
+            "sortorder": "3",
+            "drawtype": "BOLD_LINE",
+            "color": "D32F2F",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.minmatar.kills_yesterday"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "aa22cc33dd454a8e9d8c7b6a5f4e4002",
+        "name": "Faction Warfare: pilots",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "BOLD_LINE",
+            "color": "FFB300",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.amarr.pilots"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "BOLD_LINE",
+            "color": "1976D2",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.caldari.pilots"
+            }
+          },
+          {
+            "sortorder": "2",
+            "drawtype": "BOLD_LINE",
+            "color": "43A047",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.gallente.pilots"
+            }
+          },
+          {
+            "sortorder": "3",
+            "drawtype": "BOLD_LINE",
+            "color": "D32F2F",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.minmatar.pilots"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "aa22cc33dd444a8e9d8c7b6a5f4e4001",
+        "name": "Faction Warfare: systems controlled",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "BOLD_LINE",
+            "color": "FFB300",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.amarr.systems_controlled"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "BOLD_LINE",
+            "color": "1976D2",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.caldari.systems_controlled"
+            }
+          },
+          {
+            "sortorder": "2",
+            "drawtype": "BOLD_LINE",
+            "color": "43A047",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.gallente.systems_controlled"
+            }
+          },
+          {
+            "sortorder": "3",
+            "drawtype": "BOLD_LINE",
+            "color": "D32F2F",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.minmatar.systems_controlled"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "aa22cc33dd474a8e9d8c7b6a5f4e4004",
+        "name": "Faction Warfare: victory points (yesterday)",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "BOLD_LINE",
+            "color": "FFB300",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.amarr.victory_points_yesterday"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "BOLD_LINE",
+            "color": "1976D2",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.caldari.victory_points_yesterday"
+            }
+          },
+          {
+            "sortorder": "2",
+            "drawtype": "BOLD_LINE",
+            "color": "43A047",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.gallente.victory_points_yesterday"
+            }
+          },
+          {
+            "sortorder": "3",
+            "drawtype": "BOLD_LINE",
+            "color": "D32F2F",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.fw.minmatar.victory_points_yesterday"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "aa22cc33dd484a8e9d8c7b6a5f4e4005",
+        "name": "Large Skill Injector price",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "GRADIENT_LINE",
+            "color": "7E57C2",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.market.skill_injector.price"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "ea1c0d6cd53d429db78fe9be6991e1d0",
+        "name": "PLEX price",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+          {
+            "sortorder": "0",
+            "drawtype": "GRADIENT_LINE",
+            "color": "FF8000",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.market.plex.price"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "751eed1f40964f5aa424c919c9329cbc",
+        "name": "Player count",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "66BB6A",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "EVE Online by HTTP",
+              "key": "eve.status.playerCount"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

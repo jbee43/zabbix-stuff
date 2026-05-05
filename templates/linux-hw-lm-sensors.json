@@ -1,0 +1,1047 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "e960332b3f6c46a1956486d4f3f99fce",
+        "name": "Templates/Server hardware"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "363a7dda2d03477a980e1241166c1b3e",
+        "template": "Linux Hardware lm-sensors by Zabbix agent active",
+        "name": "Linux Hardware (lm-sensors) by Zabbix agent active",
+        "description": "Linux hardware monitoring via lm-sensors. Discovers and monitors temperature\nsensors, fans, voltage rails, and power sensors automatically.\n\nSetup:\n1. Install lm-sensors: sudo apt install lm-sensors && sudo sensors-detect --auto\n2. Deploy script: sudo cp lm-sensors-stats.py /etc/zabbix/scripts/ && sudo chmod +x /etc/zabbix/scripts/lm-sensors-stats.py\n3. Deploy config: sudo cp linux-hw-lm-sensors.conf /etc/zabbix/zabbix_agent2.d/\n4. Restart agent: sudo systemctl restart zabbix-agent2\n\nRequires: Python 3.6+, lm-sensors package with sensors -j support.",
+        "groups": [
+          {
+            "name": "Templates/Server hardware"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "b41f49c0f3d0471780adb17b04650b11",
+            "name": "Sensor stats (raw)",
+            "type": "ZABBIX_ACTIVE",
+            "key": "lm.sensors.stats",
+            "delay": "2m",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item: JSON blob with all lm-sensors hardware data from lm-sensors-stats.py. Not stored \u2014 dependent items and discovery rules extract individual metrics via JSONPath.",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "cea77225c37c45c49fc92ecbfad2d27c",
+                "expression": "nodata(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.stats,{$LM.NODATA})=1",
+                "name": "No data received for {$LM.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The lm-sensors-stats script has not returned data within the expected interval. Check that the Zabbix agent is running, lm-sensors is installed (sensors -j works), and the Python script is deployed to /etc/zabbix/scripts/.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "discovery_rules": [
+          {
+            "uuid": "d29dd1897382429bac187868c013f139",
+            "name": "Fan sensor discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.fan.discovery",
+            "description": "Discovers fan speed sensors reported by lm-sensors. Creates monitoring items per fan with low-speed trigger.",
+            "item_prototypes": [
+              {
+                "uuid": "e1c7eceedecc4d4485e36ea4b983db38",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} fan speed",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.fan.input[{#SENSOR.ID}]",
+                "history": "14d",
+                "units": "RPM",
+                "description": "Fan speed in RPM from sensor {#SENSOR.LABEL} on chip {#SENSOR.CHIP}. A value of 0 may indicate the fan has stopped or is in zero-RPM mode.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.fans[?(@.id==\"{#SENSOR.ID}\")].input.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "cooling"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ],
+                "trigger_prototypes": [
+                  {
+                    "uuid": "cbd8c53ceac24a558417ea098598d934",
+                    "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.fan.input[{#SENSOR.ID}],5m)<{$LM.FAN.MIN}",
+                    "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} fan speed below {$LM.FAN.MIN} RPM",
+                    "priority": "WARNING",
+                    "description": "Fan {#SENSOR.LABEL} on {#SENSOR.CHIP} is running below the minimum expected speed ({$LM.FAN.MIN} RPM, 5-minute average). The fan may have failed or be obstructed. Set {$LM.FAN.MIN} to 0 to disable for fans with zero-RPM idle mode.",
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "availability"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "de4a068a2a244587b51c1b9b844d5d74",
+                "name": "Fan speed: {#SENSOR.CHIP} \u2014 {#SENSOR.LABEL}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "42A5F5",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Linux Hardware lm-sensors by Zabbix agent active",
+                      "key": "lm.sensors.fan.input[{#SENSOR.ID}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.fans"]
+              }
+            ]
+          },
+          {
+            "uuid": "6ad1af8dcc534af68d267fbe6d06e52a",
+            "name": "Power sensor discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.power.discovery",
+            "description": "Discovers power consumption sensors reported by lm-sensors (e.g. CPU package power, DRAM power). Creates monitoring items per power sensor.",
+            "item_prototypes": [
+              {
+                "uuid": "f0d475b4cbc9498a865e28cc4ebbbff8",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} power",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.power.input[{#SENSOR.ID}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "W",
+                "description": "Power consumption from sensor {#SENSOR.LABEL} on chip {#SENSOR.CHIP}.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.powers[?(@.id==\"{#SENSOR.ID}\")].input.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "power"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "06e62df09684422c9efaaf892446fe7e",
+                "name": "Power: {#SENSOR.CHIP} \u2014 {#SENSOR.LABEL}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "F44336",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Linux Hardware lm-sensors by Zabbix agent active",
+                      "key": "lm.sensors.power.input[{#SENSOR.ID}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.powers"]
+              }
+            ]
+          },
+          {
+            "uuid": "3db0282fba2f4e1da6405ab94a3ee8a9",
+            "name": "Temperature critical threshold discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.temp.crit.discovery",
+            "description": "Discovers only the temperature sensors that report a hardware-defined critical threshold. Sensors without a temp_crit reading are excluded.",
+            "item_prototypes": [
+              {
+                "uuid": "9318ba0de8b946e490af9eb4d56a86f2",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature critical",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.temp.crit[{#SENSOR.ID}]",
+                "history": "1d",
+                "value_type": "FLOAT",
+                "trends": "0",
+                "units": "\u00b0C",
+                "description": "Critical temperature threshold reported by sensor hardware for {#SENSOR.LABEL} on chip {#SENSOR.CHIP}. Exceeding this may cause thermal shutdown.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.temperature_crit[?(@.id==\"{#SENSOR.ID}\")].value.first()"
+                    ]
+                  },
+                  {
+                    "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                    "parameters": ["1d"]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.temperature_crit"]
+              }
+            ]
+          },
+          {
+            "uuid": "4cb1f345941d4356b1436519f60df2b0",
+            "name": "Temperature sensor discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.temp.discovery",
+            "description": "Discovers temperature sensors reported by lm-sensors (e.g. CPU package, core temps, chipset). Creates monitoring items per sensor with optional max/critical thresholds.",
+            "item_prototypes": [
+              {
+                "uuid": "6d14275df2984358bff1b2e9c17e1743",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.temp.input[{#SENSOR.ID}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "\u00b0C",
+                "description": "Current temperature reading from sensor {#SENSOR.LABEL} on chip {#SENSOR.CHIP}.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.temperatures[?(@.id==\"{#SENSOR.ID}\")].input.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ],
+                "trigger_prototypes": [
+                  {
+                    "uuid": "4b063123c70b449bbeb238a9b6603e77",
+                    "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.temp.input[{#SENSOR.ID}],5m)>{$LM.TEMP.DISASTER}",
+                    "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature > {$LM.TEMP.DISASTER}\u00b0C",
+                    "priority": "DISASTER",
+                    "description": "Temperature sensor {#SENSOR.LABEL} on {#SENSOR.CHIP} has exceeded the disaster threshold ({$LM.TEMP.DISASTER}\u00b0C, 5-minute average). Hardware damage is possible.",
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "availability"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "8125d2347e9f417696414d9af5f7d6b1",
+                    "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.temp.input[{#SENSOR.ID}],5m)>{$LM.TEMP.HIGH}",
+                    "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature > {$LM.TEMP.HIGH}\u00b0C",
+                    "priority": "HIGH",
+                    "description": "Temperature sensor {#SENSOR.LABEL} on {#SENSOR.CHIP} is high ({$LM.TEMP.HIGH}\u00b0C, 5-minute average). Thermal throttling may occur.",
+                    "dependencies": [
+                      {
+                        "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature > {$LM.TEMP.DISASTER}\u00b0C",
+                        "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.temp.input[{#SENSOR.ID}],5m)>{$LM.TEMP.DISASTER}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  },
+                  {
+                    "uuid": "c27ea62df20440d190642a3ba3d0640e",
+                    "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.temp.input[{#SENSOR.ID}],5m)>{$LM.TEMP.WARNING}",
+                    "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature > {$LM.TEMP.WARNING}\u00b0C",
+                    "priority": "WARNING",
+                    "description": "Temperature sensor {#SENSOR.LABEL} on {#SENSOR.CHIP} is elevated ({$LM.TEMP.WARNING}\u00b0C, 5-minute average).",
+                    "dependencies": [
+                      {
+                        "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature > {$LM.TEMP.HIGH}\u00b0C",
+                        "expression": "avg(/Linux Hardware lm-sensors by Zabbix agent active/lm.sensors.temp.input[{#SENSOR.ID}],5m)>{$LM.TEMP.HIGH}"
+                      }
+                    ],
+                    "tags": [
+                      {
+                        "tag": "scope",
+                        "value": "performance"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "72b5f5a2970c41c7bfeec6ec718fcfa4",
+                "name": "Temperature: {#SENSOR.CHIP} \u2014 {#SENSOR.LABEL}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "FF6F00",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Linux Hardware lm-sensors by Zabbix agent active",
+                      "key": "lm.sensors.temp.input[{#SENSOR.ID}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.temperatures"]
+              }
+            ]
+          },
+          {
+            "uuid": "17f14274628a435e94efdd86b4736ac5",
+            "name": "Temperature max threshold discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.temp.max.discovery",
+            "description": "Discovers only the temperature sensors that report a hardware-defined max threshold. Sensors without a temp_max reading are excluded so no orphan items are created.",
+            "item_prototypes": [
+              {
+                "uuid": "e061ed3ccb0e4800bb3921b90994b104",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} temperature max",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.temp.max[{#SENSOR.ID}]",
+                "history": "1d",
+                "value_type": "FLOAT",
+                "trends": "0",
+                "units": "\u00b0C",
+                "description": "Maximum temperature threshold reported by sensor hardware for {#SENSOR.LABEL} on chip {#SENSOR.CHIP}. This is the sensor's own limit, not a Zabbix trigger threshold.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.temperature_max[?(@.id==\"{#SENSOR.ID}\")].value.first()"
+                    ]
+                  },
+                  {
+                    "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                    "parameters": ["1d"]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.temperature_max"]
+              }
+            ]
+          },
+          {
+            "uuid": "450b9df083c849088d80ae3ab8f29e06",
+            "name": "Voltage sensor discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.volt.discovery",
+            "description": "Discovers voltage rail sensors reported by lm-sensors (e.g. +3.3V, +5V, +12V, Vcore). Creates monitoring items per voltage rail with sensor-reported min/max limits.",
+            "item_prototypes": [
+              {
+                "uuid": "17db251fa1754c2d9473e90f8645141b",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} voltage",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.volt.input[{#SENSOR.ID}]",
+                "history": "14d",
+                "value_type": "FLOAT",
+                "units": "V",
+                "description": "Current voltage reading from sensor {#SENSOR.LABEL} on chip {#SENSOR.CHIP}.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.voltages[?(@.id==\"{#SENSOR.ID}\")].input.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "voltage"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "a67a5ff2901449a98e109b0e21a409a9",
+                "name": "Voltage: {#SENSOR.CHIP} \u2014 {#SENSOR.LABEL}",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "66BB6A",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Linux Hardware lm-sensors by Zabbix agent active",
+                      "key": "lm.sensors.volt.input[{#SENSOR.ID}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.voltages"]
+              }
+            ]
+          },
+          {
+            "uuid": "d095c89f479d4d98aacf89e6b68a2126",
+            "name": "Voltage max threshold discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.volt.max.discovery",
+            "description": "Discovers only the voltage rails that report a hardware-defined max threshold. Rails without an in_max reading are excluded.",
+            "item_prototypes": [
+              {
+                "uuid": "1d856e3228874d4e842f1deed15e8d99",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} voltage max",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.volt.max[{#SENSOR.ID}]",
+                "history": "1d",
+                "value_type": "FLOAT",
+                "trends": "0",
+                "units": "V",
+                "description": "Maximum voltage threshold reported by sensor hardware for {#SENSOR.LABEL} on chip {#SENSOR.CHIP}.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.voltage_max[?(@.id==\"{#SENSOR.ID}\")].value.first()"
+                    ]
+                  },
+                  {
+                    "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                    "parameters": ["1d"]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "voltage"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.voltage_max"]
+              }
+            ]
+          },
+          {
+            "uuid": "8582d06344654d8ba65a5f34063b891e",
+            "name": "Voltage min threshold discovery",
+            "type": "DEPENDENT",
+            "key": "lm.sensors.volt.min.discovery",
+            "description": "Discovers only the voltage rails that report a hardware-defined min threshold. Rails without an in_min reading are excluded.",
+            "item_prototypes": [
+              {
+                "uuid": "14a13b53dc5042388dadac7e99464979",
+                "name": "{#SENSOR.CHIP}: {#SENSOR.LABEL} voltage min",
+                "type": "DEPENDENT",
+                "key": "lm.sensors.volt.min[{#SENSOR.ID}]",
+                "history": "1d",
+                "value_type": "FLOAT",
+                "trends": "0",
+                "units": "V",
+                "description": "Minimum voltage threshold reported by sensor hardware for {#SENSOR.LABEL} on chip {#SENSOR.CHIP}.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$.voltage_min[?(@.id==\"{#SENSOR.ID}\")].value.first()"
+                    ]
+                  },
+                  {
+                    "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                    "parameters": ["1d"]
+                  }
+                ],
+                "master_item": {
+                  "key": "lm.sensors.stats"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "voltage"
+                  },
+                  {
+                    "tag": "sensor",
+                    "value": "{#SENSOR.LABEL}"
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "lm.sensors.stats"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#SENSOR.CHIP}",
+                "path": "$.chip"
+              },
+              {
+                "lld_macro": "{#SENSOR.ID}",
+                "path": "$.id"
+              },
+              {
+                "lld_macro": "{#SENSOR.LABEL}",
+                "path": "$.label"
+              }
+            ],
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.voltage_min"]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "hardware"
+          },
+          {
+            "tag": "target",
+            "value": "linux-hw"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$LM.FAN.MIN}",
+            "value": "200",
+            "description": "Minimum expected fan speed (RPM). Triggers WARNING when 5-minute average drops below this value. Set to 0 to disable for fans with zero-RPM idle mode."
+          },
+          {
+            "macro": "{$LM.NODATA}",
+            "value": "10m",
+            "description": "No-data timeout for the master item."
+          },
+          {
+            "macro": "{$LM.TEMP.DISASTER}",
+            "value": "100",
+            "description": "Temperature disaster threshold (\u00b0C). Hardware damage is possible above this value."
+          },
+          {
+            "macro": "{$LM.TEMP.HIGH}",
+            "value": "90",
+            "description": "Temperature high threshold (\u00b0C). Thermal throttling may occur above this value."
+          },
+          {
+            "macro": "{$LM.TEMP.WARNING}",
+            "value": "80",
+            "description": "Temperature warning threshold (\u00b0C)."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "89379e5e4f584607a55c21539b70c926",
+            "name": "lm-sensors",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "svggraph",
+                    "name": "Temperatures",
+                    "width": "36",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FF465C"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "* temperature"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "LMTMP"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Voltages",
+                    "y": "6",
+                    "width": "36",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FF8000"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "* voltage"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "KPHON"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Fans",
+                    "x": "36",
+                    "width": "36",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "64B5F6"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "* fan speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "XJIZE"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Power",
+                    "x": "36",
+                    "y": "6",
+                    "width": "36",
+                    "height": "6",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "9C27B0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "* power"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines",
+                        "value": "10"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_lines_mode",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "WCBOH"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "simple_triggers",
+                        "value": "1"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

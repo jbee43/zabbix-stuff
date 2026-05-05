@@ -1,0 +1,6 @@
+[allowlist]
+  description = "Zabbix template item keys (not secrets)"
+  regexTarget = "match"
+  regexes = [
+    '''^\w+\.\w+(\.\w+)*(\[\{#\w+\}\])?$''',
+  ]

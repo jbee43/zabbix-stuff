@@ -1,0 +1,831 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "7df96b18c230490a9a0a9e2307226338",
+        "name": "Templates"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "523e4b56859f49d6aa7b7d0f671b9ec3",
+        "template": "Speedtest by Zabbix agent active",
+        "name": "Speedtest by Zabbix agent active",
+        "description": "Internet performance monitoring via the LibreSpeed CLI (open source, no telemetry, no license prompts).\nCollects download/upload speed, ping latency, jitter, server info, and ISP identification.\n\nSetup:\n1. Install LibreSpeed CLI from https://github.com/librespeed/speedtest-cli/releases (single static binary; drop in /usr/local/bin/).\n2. Deploy script: /etc/zabbix/scripts/speedtest-stats.sh (chmod +x).\n3. Deploy config: /etc/zabbix/zabbix_agent2.d/speedtest.conf.\n4. Set Timeout=120 in zabbix_agent2.conf (a full speedtest takes 30-60s).\n5. Restart agent: sudo systemctl restart zabbix-agent2.\n\nRequires: librespeed-cli, jq, bash. LibreSpeed does not measure packet loss; that metric is not exposed.",
+        "groups": [
+          {
+            "name": "Templates"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "0f8de1d7bc2a4446971912b780bbd4b0",
+            "name": "Last result",
+            "type": "DEPENDENT",
+            "key": "speedtest.collected_at",
+            "history": "7d",
+            "trends": "0",
+            "units": "unixtime",
+            "description": "Unix timestamp of the most recent successful speedtest run. Lets the dashboard show how stale the cached result is and how recently the background refresh succeeded.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.collected_at_ts"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "c71a3813c1964b28bde6d57c7df193f5",
+            "name": "Download speed",
+            "type": "DEPENDENT",
+            "key": "speedtest.download",
+            "history": "14d",
+            "units": "bps",
+            "description": "Internet download speed in bits per second, measured by LibreSpeed CLI.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.download_bps"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "bandwidth"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "0ca290bfe9ee49b0b78beb94d56bfea1",
+                "expression": "last(/Speedtest by Zabbix agent active/speedtest.download)<{$SPEEDTEST.DL.WARNING}",
+                "name": "Download speed below expected (< {$SPEEDTEST.DL.WARNING} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Internet download speed is below the warning threshold. May indicate ISP throttling or congestion.",
+                "dependencies": [
+                  {
+                    "name": "Download speed critically low (< {$SPEEDTEST.DL.DISASTER} bps)",
+                    "expression": "last(/Speedtest by Zabbix agent active/speedtest.download)<{$SPEEDTEST.DL.DISASTER}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              },
+              {
+                "uuid": "c544c2b57e8d4341add2722b6223f2de",
+                "expression": "last(/Speedtest by Zabbix agent active/speedtest.download)<{$SPEEDTEST.DL.DISASTER}",
+                "name": "Download speed critically low (< {$SPEEDTEST.DL.DISASTER} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "DISASTER",
+                "description": "Internet download speed has dropped below the disaster threshold. Possible ISP outage or severe degradation.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "18dfb07c465446d38be6a39155adde8e",
+            "name": "ISP",
+            "type": "DEPENDENT",
+            "key": "speedtest.isp",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "Internet Service Provider name as reported by LibreSpeed (derived from the client IP).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.isp"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "c6cbe47fce7a417fb5d61b469bb402a3",
+            "name": "Jitter",
+            "type": "DEPENDENT",
+            "key": "speedtest.jitter",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ms",
+            "description": "Network jitter (variation in ping latency) in milliseconds, measured by LibreSpeed CLI.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.jitter_ms"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "latency"
+              }
+            ]
+          },
+          {
+            "uuid": "fe61838529ad455bb54278136c0ddc6b",
+            "name": "Ping latency",
+            "type": "DEPENDENT",
+            "key": "speedtest.ping",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ms",
+            "description": "Ping latency to the speedtest server in milliseconds.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.ping_ms"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "latency"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "70b11ca43a0d49cead39c3ea444fb559",
+                "expression": "avg(/Speedtest by Zabbix agent active/speedtest.ping,5m)>{$SPEEDTEST.PING.HIGH}",
+                "name": "Ping latency critically high (> {$SPEEDTEST.PING.HIGH} ms)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "HIGH",
+                "description": "Average ping latency exceeds the high threshold. Severe network degradation - real-time applications will be impacted.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              },
+              {
+                "uuid": "440fbb7965bd40c1a73bb988b6725004",
+                "expression": "avg(/Speedtest by Zabbix agent active/speedtest.ping,5m)>{$SPEEDTEST.PING.WARNING}",
+                "name": "Ping latency elevated (> {$SPEEDTEST.PING.WARNING} ms)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Average ping latency exceeds the warning threshold. May affect real-time applications (VoIP, gaming, video calls).",
+                "dependencies": [
+                  {
+                    "name": "Ping latency critically high (> {$SPEEDTEST.PING.HIGH} ms)",
+                    "expression": "avg(/Speedtest by Zabbix agent active/speedtest.ping,5m)>{$SPEEDTEST.PING.HIGH}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "ec7903b3065340c2a2485549e1171ad8",
+            "name": "Result URL",
+            "type": "DEPENDENT",
+            "key": "speedtest.result_url",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "Shareable URL for the latest LibreSpeed result. Empty unless the LibreSpeed server has telemetry enabled and the CLI is invoked with --share.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.result_url"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "9b52ba45ac0543729cac7aa99e1ee6bd",
+            "name": "Server name",
+            "type": "DEPENDENT",
+            "key": "speedtest.server",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "LibreSpeed server name selected for the test (auto-picked from the public server list unless --server is set).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.server_name"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "f50981f3005d440e93d6a5694c7747e4",
+            "name": "Speedtest stats (raw)",
+            "type": "ZABBIX_ACTIVE",
+            "key": "speedtest.stats",
+            "delay": "2m",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item: raw JSON output from speedtest-read.sh (LibreSpeed cache). Polled cheaply every 2 min - just cats the cache file. The actual speedtest binary is fired in the background by the read wrapper, but only when the cache is older than SPEEDTEST_REFRESH (default 1800s / 30 min). flock prevents overlapping runs. Not stored - dependent items extract individual metrics.",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "109aa5025c244772850d0101060a9e6e",
+                "expression": "nodata(/Speedtest by Zabbix agent active/speedtest.stats,{$SPEEDTEST.NODATA})=1",
+                "name": "No speedtest data received for {$SPEEDTEST.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The speedtest-stats.sh script has not returned data within the expected interval. Check that the Zabbix agent is running, librespeed-cli is installed, and the script is deployed to /etc/zabbix/scripts/.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "870b07ea4ca24ae0b6e3555e511395cd",
+            "name": "Upload speed",
+            "type": "DEPENDENT",
+            "key": "speedtest.upload",
+            "history": "14d",
+            "units": "bps",
+            "description": "Internet upload speed in bits per second, measured by LibreSpeed CLI.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.upload_bps"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "bandwidth"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "3642d1880b4448eeb8378bbc55cdb6cf",
+                "expression": "last(/Speedtest by Zabbix agent active/speedtest.upload)<{$SPEEDTEST.UL.WARNING}",
+                "name": "Upload speed below expected (< {$SPEEDTEST.UL.WARNING} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Internet upload speed is below the warning threshold. May indicate ISP throttling or congestion.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "network"
+          },
+          {
+            "tag": "target",
+            "value": "internet"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$SPEEDTEST.DL.DISASTER}",
+            "value": "300000000",
+            "description": "Download speed disaster threshold (bps). Default 300 Mbps - LibreSpeed typically reports ~70-80% of nominal line speed even on a healthy gigabit link, so the default targets degraded health rather than nominal capacity. Override per host to match your ISP plan."
+          },
+          {
+            "macro": "{$SPEEDTEST.DL.WARNING}",
+            "value": "600000000",
+            "description": "Download speed warning threshold (bps). Default 600 Mbps - sized for a healthy 1 Gbps line as measured by LibreSpeed. Override per host."
+          },
+          {
+            "macro": "{$SPEEDTEST.NODATA}",
+            "value": "10m",
+            "description": "No-data timeout for the speedtest master item. Polling cadence is 2 min by default (the master item just reads a cache file), so anything beyond 10m means the agent has stopped reporting altogether."
+          },
+          {
+            "macro": "{$SPEEDTEST.PING.HIGH}",
+            "value": "50",
+            "description": "Ping latency high threshold (ms). Severe degradation for real-time applications."
+          },
+          {
+            "macro": "{$SPEEDTEST.PING.WARNING}",
+            "value": "20",
+            "description": "Ping latency warning threshold (ms). May affect VoIP, gaming, and video calls."
+          },
+          {
+            "macro": "{$SPEEDTEST.UL.WARNING}",
+            "value": "300000000",
+            "description": "Upload speed warning threshold (bps). Default 300 Mbps - sized for a symmetric gigabit line as measured by LibreSpeed. Override per host (most consumer ISPs are asymmetric)."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "c7038dfc423d47ca8f500ee356d1e7ea",
+            "name": "Speedtest",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Download",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.download"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "ISP",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.isp"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Download speed",
+                    "y": "4",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "0080FF"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Download speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPL07"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Ping",
+                    "y": "8",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FF6F00"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Ping latency"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPL09"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Upload",
+                    "x": "24",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.upload"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Server",
+                    "x": "24",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.server"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Upload speed",
+                    "x": "36",
+                    "y": "4",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "66BB6A"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Upload speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPL08"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Jitter",
+                    "x": "36",
+                    "y": "8",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "AB47BC"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Jitter"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "IZQMG"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Ping",
+                    "x": "48",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "down_color",
+                        "value": "3DC51D"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.ping"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "updown_color",
+                        "value": "878787"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "up_color",
+                        "value": "FC5A5A"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Last result",
+                    "x": "48",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest by Zabbix agent active",
+                          "key": "speedtest.collected_at"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

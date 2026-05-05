@@ -1,0 +1,830 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "7df96b18c230490a9a0a9e2307226338",
+        "name": "Templates"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "80c8bae12a3d48d9a101a4b08fb69d19",
+        "template": "Speedtest Cloudflare by HTTP",
+        "name": "Speedtest Cloudflare by HTTP",
+        "description": "Internet performance monitoring against Cloudflare's edge (speed.cloudflare.com).\n\nUses native Zabbix HTTP agent + JavaScript preprocessing - no external scripts, binaries, or UserParameters required. The master item fetches /cdn-cgi/trace (tiny, gives PoP/country); the JS preprocessing then performs N timed latency probes plus one download and one upload via HttpRequest, returning a single merged JSON document consumed by the dependent items.\n\nMethodology notes (be honest about limitations):\n- Single-stream HTTP throughput. Comparable to Ookla / LibreSpeed only at the order-of-magnitude level. May underreport on very high-BDP links (>500 Mbps with high latency) where multi-stream tools win.\n- Measures speed against the closest Cloudflare PoP, not a generic 'internet' server. For ISP plan validation that is usually what you actually want.\n- No packet-loss measurement (HTTP cannot expose it cleanly).\n- Payload sizes default to 5 MB download / 2 MB upload to fit comfortably inside Zabbix server's JS preprocessing time budget. Increase via macros if your Zabbix server Timeout allows and your link is fast enough.",
+        "groups": [
+          {
+            "name": "Templates"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "3c8ec7ec5aa046d780f1482d6c684d42",
+            "name": "Last result",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.collected_at",
+            "history": "7d",
+            "trends": "0",
+            "units": "unixtime",
+            "description": "Unix timestamp of the most recent successful Cloudflare speedtest run.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.collected_at_ts"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "3dfaa94f68e04145ac522aa2e78fc694",
+            "name": "Cloudflare PoP",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.colo",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "Cloudflare data-center code (IATA-style) handling the test, e.g. LIS, MAD, FRA. Reflects which PoP your traffic landed on.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.colo"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "122f2000cc454de7a510db7a433da73b",
+            "name": "Country",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.country",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "ISO country code as seen by Cloudflare for the client connection.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.country"
+                ]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": [
+                  "1d"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "info"
+              }
+            ]
+          },
+          {
+            "uuid": "03f8a63b7b7e4e67834b68fb3d299419",
+            "name": "Download speed",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.download",
+            "history": "14d",
+            "units": "bps",
+            "description": "Internet download speed in bits per second, measured as a single HTTPS stream from speed.cloudflare.com.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.download_bps"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "bandwidth"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "49e4798436a4422182d480be05c2d210",
+                "expression": "last(/Speedtest Cloudflare by HTTP/speedtest.cf.download)<{$SPEEDTEST.CF.DL.WARNING}",
+                "name": "Cloudflare download speed below expected (< {$SPEEDTEST.CF.DL.WARNING} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Internet download speed is below the warning threshold. May indicate ISP throttling or congestion.",
+                "dependencies": [
+                  {
+                    "name": "Cloudflare download speed critically low (< {$SPEEDTEST.CF.DL.DISASTER} bps)",
+                    "expression": "last(/Speedtest Cloudflare by HTTP/speedtest.cf.download)<{$SPEEDTEST.CF.DL.DISASTER}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              },
+              {
+                "uuid": "0e2d112572ac4e99a8e421188b7bf3a7",
+                "expression": "last(/Speedtest Cloudflare by HTTP/speedtest.cf.download)<{$SPEEDTEST.CF.DL.DISASTER}",
+                "name": "Cloudflare download speed critically low (< {$SPEEDTEST.CF.DL.DISASTER} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "DISASTER",
+                "description": "Internet download speed has dropped below the disaster threshold. Possible ISP outage or severe degradation.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "52cfecf01f9045a9be7520d641cda39a",
+            "name": "Jitter",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.jitter",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ms",
+            "description": "Mean absolute deviation between consecutive ping samples, in milliseconds.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.jitter_ms"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "latency"
+              }
+            ]
+          },
+          {
+            "uuid": "5533e97d92d4415491f0efc98fe82d37",
+            "name": "Ping latency",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.ping",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "ms",
+            "description": "Average HTTP round-trip time to the closest Cloudflare PoP, in milliseconds. Sampled over {$SPEEDTEST.CF.PING_SAMPLES} small requests.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.ping_ms"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "latency"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "ac5ceda6ad4d4fa8b30dd07af1d8fa1d",
+                "expression": "avg(/Speedtest Cloudflare by HTTP/speedtest.cf.ping,5m)>{$SPEEDTEST.CF.PING.HIGH}",
+                "name": "Cloudflare ping latency critically high (> {$SPEEDTEST.CF.PING.HIGH} ms)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "HIGH",
+                "description": "Average ping latency exceeds the high threshold. Severe network degradation - real-time applications will be impacted.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              },
+              {
+                "uuid": "563206327d964a05902b2147a54a5eba",
+                "expression": "avg(/Speedtest Cloudflare by HTTP/speedtest.cf.ping,5m)>{$SPEEDTEST.CF.PING.WARNING}",
+                "name": "Cloudflare ping latency elevated (> {$SPEEDTEST.CF.PING.WARNING} ms)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Average ping latency exceeds the warning threshold. May affect real-time applications (VoIP, gaming, video calls).",
+                "dependencies": [
+                  {
+                    "name": "Cloudflare ping latency critically high (> {$SPEEDTEST.CF.PING.HIGH} ms)",
+                    "expression": "avg(/Speedtest Cloudflare by HTTP/speedtest.cf.ping,5m)>{$SPEEDTEST.CF.PING.HIGH}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "c99707646d2b4a7f87ca7813e7b3f434",
+            "name": "Speedtest stats (raw)",
+            "type": "HTTP_AGENT",
+            "key": "speedtest.cf.stats",
+            "delay": "30m",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item. Fetches Cloudflare /cdn-cgi/trace (PoP + country metadata); JavaScript preprocessing then runs the timed latency / download / upload probes via HttpRequest and returns a merged JSON document. Not stored - dependent items extract individual metrics.",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "var dlBytes = parseInt(\"{$SPEEDTEST.CF.DL_BYTES}\", 10);\nif (isNaN(dlBytes) || dlBytes <= 0) dlBytes = 5000000;\nvar ulBytes = parseInt(\"{$SPEEDTEST.CF.UL_BYTES}\", 10);\nif (isNaN(ulBytes) || ulBytes <= 0) ulBytes = 2000000;\nvar pingSamples = parseInt(\"{$SPEEDTEST.CF.PING_SAMPLES}\", 10);\nif (isNaN(pingSamples) || pingSamples <= 0) pingSamples = 5;\n\nvar errors = [];\nvar out = {\n  download_bps: 0,\n  upload_bps: 0,\n  ping_ms: 0,\n  jitter_ms: 0,\n  colo: \"\",\n  country: \"\",\n  collected_at_ts: Math.floor(Date.now() / 1000)\n};\n\n// Parse /cdn-cgi/trace body (key=value\\n).\ntry {\n  var lines = (value || \"\").split(\"\\n\");\n  for (var i = 0; i < lines.length; i++) {\n    var idx = lines[i].indexOf(\"=\");\n    if (idx > 0) {\n      var k = lines[i].substring(0, idx);\n      var v = lines[i].substring(idx + 1);\n      if (k === \"colo\") out.colo = v;\n      else if (k === \"loc\") out.country = v;\n    }\n  }\n} catch (e) { errors.push(\"trace: \" + e); }\n\n// Latency probes (1-byte fetches; round-trip dominated by TCP/TLS reuse and TTFB).\nvar pings = [];\nfor (var i = 0; i < pingSamples; i++) {\n  try {\n    var pReq = new HttpRequest();\n    var t0 = Date.now();\n    pReq.get(\"https://speed.cloudflare.com/__down?bytes=1\");\n    pings.push(Date.now() - t0);\n  } catch (e) { errors.push(\"ping\" + i + \": \" + e); }\n}\nif (pings.length > 0) {\n  var sum = 0;\n  for (var i = 0; i < pings.length; i++) sum += pings[i];\n  out.ping_ms = sum / pings.length;\n  if (pings.length > 1) {\n    var jSum = 0;\n    for (var i = 1; i < pings.length; i++) jSum += Math.abs(pings[i] - pings[i - 1]);\n    out.jitter_ms = jSum / (pings.length - 1);\n  }\n}\n\n// Download — single timed fetch of dlBytes.\ntry {\n  var dReq = new HttpRequest();\n  var t0 = Date.now();\n  var body = dReq.get(\"https://speed.cloudflare.com/__down?bytes=\" + dlBytes);\n  var elapsed = (Date.now() - t0) / 1000;\n  if (body && elapsed > 0) {\n    out.download_bps = Math.floor((body.length * 8) / elapsed);\n  }\n} catch (e) { errors.push(\"download: \" + e); }\n\n// Upload — build a string payload by doubling, then POST it.\ntry {\n  var payload = \"x\";\n  while (payload.length < ulBytes) payload += payload;\n  if (payload.length > ulBytes) payload = payload.substring(0, ulBytes);\n  var uReq = new HttpRequest();\n  uReq.addHeader(\"Content-Type: application/octet-stream\");\n  var t0 = Date.now();\n  uReq.post(\"https://speed.cloudflare.com/__up\", payload);\n  var elapsed = (Date.now() - t0) / 1000;\n  if (elapsed > 0) {\n    out.upload_bps = Math.floor((payload.length * 8) / elapsed);\n  }\n} catch (e) { errors.push(\"upload: \" + e); }\n\nout.errors = errors;\nout.collected_at_ts = Math.floor(Date.now() / 1000);\nreturn JSON.stringify(out);"
+                ]
+              }
+            ],
+            "timeout": "30s",
+            "url": "https://speed.cloudflare.com/cdn-cgi/trace",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "fc9b89a589e2423ca425ca3fac9afdb6",
+                "expression": "nodata(/Speedtest Cloudflare by HTTP/speedtest.cf.stats,{$SPEEDTEST.CF.NODATA})=1",
+                "name": "No Cloudflare speedtest data received for {$SPEEDTEST.CF.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The Cloudflare speedtest master item has not produced data within the expected interval. Possible causes: Zabbix server JS preprocessing timeout exceeded (lower {$SPEEDTEST.CF.DL_BYTES} / {$SPEEDTEST.CF.UL_BYTES}), Cloudflare unreachable, or DNS/network failure.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "53c91c1eff1b42dc82c4f35198b67c2c",
+            "name": "Upload speed",
+            "type": "DEPENDENT",
+            "key": "speedtest.cf.upload",
+            "history": "14d",
+            "units": "bps",
+            "description": "Internet upload speed in bits per second, measured as a single HTTPS POST to speed.cloudflare.com.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.upload_bps"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "speedtest.cf.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "bandwidth"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "d54050683f6d401a8fd0f9b65df04cfe",
+                "expression": "last(/Speedtest Cloudflare by HTTP/speedtest.cf.upload)<{$SPEEDTEST.CF.UL.WARNING}",
+                "name": "Cloudflare upload speed below expected (< {$SPEEDTEST.CF.UL.WARNING} bps)",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "Internet upload speed is below the warning threshold. May indicate ISP throttling or congestion.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "network"
+          },
+          {
+            "tag": "target",
+            "value": "internet"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$SPEEDTEST.CF.DL.DISASTER}",
+            "value": "500000000",
+            "description": "Download speed disaster threshold (bps). Default: 500 Mbps."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.DL.WARNING}",
+            "value": "800000000",
+            "description": "Download speed warning threshold (bps). Default: 800 Mbps."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.DL_BYTES}",
+            "value": "5000000",
+            "description": "Download payload size in bytes. Default 5 MB - keeps the JS preprocessing step well inside Zabbix server's default time budget. Increase for higher accuracy on fast links if your zabbix_server.conf Timeout allows."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.NODATA}",
+            "value": "90m",
+            "description": "No-data timeout for the master item. Should exceed the collection interval (default 30m) plus execution time."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.PING.HIGH}",
+            "value": "50",
+            "description": "Ping latency high threshold (ms). Severe degradation for real-time applications."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.PING.WARNING}",
+            "value": "20",
+            "description": "Ping latency warning threshold (ms). May affect VoIP, gaming, and video calls."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.PING_SAMPLES}",
+            "value": "5",
+            "description": "Number of latency probe requests to average. Default 5."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.UL.WARNING}",
+            "value": "400000000",
+            "description": "Upload speed warning threshold (bps). Default: 400 Mbps."
+          },
+          {
+            "macro": "{$SPEEDTEST.CF.UL_BYTES}",
+            "value": "2000000",
+            "description": "Upload payload size in bytes. Default 2 MB - same trade-off as DL_BYTES (accuracy vs. preprocessing time)."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "5a6b61dba59d407bbca6bbc1086ab59e",
+            "name": "Speedtest Cloudflare",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Download",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.download"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Cloudflare PoP",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.colo"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Download speed",
+                    "y": "4",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "0080FF"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Download speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPC07"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Ping",
+                    "y": "8",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "FF6F00"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Ping latency"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPC09"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Upload",
+                    "x": "24",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.upload"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Country",
+                    "x": "24",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.country"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Upload speed",
+                    "x": "36",
+                    "y": "4",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "66BB6A"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Upload speed"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "SPC08"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "svggraph",
+                    "name": "Jitter",
+                    "x": "36",
+                    "y": "8",
+                    "width": "36",
+                    "height": "4",
+                    "fields": [
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.color",
+                        "value": "AB47BC"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.fill",
+                        "value": "5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "ds.0.items.0",
+                        "value": "Jitter"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "ds.0.width",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "lefty_min",
+                        "value": "0"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "legend_statistic",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "GRNBH"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "righty",
+                        "value": "0"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Ping",
+                    "x": "48",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "down_color",
+                        "value": "3DC51D"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.ping"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "updown_color",
+                        "value": "878787"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "up_color",
+                        "value": "FC5A5A"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Last result",
+                    "x": "48",
+                    "y": "2",
+                    "width": "24",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Speedtest Cloudflare by HTTP",
+                          "key": "speedtest.cf.collected_at"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  // Minimal ruleset: correctness over style. See https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+  "default": true,
+  "MD013": false,   // line-length — prose and tables exceed 80 cols
+  "MD033": false,   // inline HTML — needed for some docs formatting
+  "MD041": false,   // first line h1 — some docs start with frontmatter/intro
+  "MD060": false,   // table-column-style — repo uses compact no-space tables by convention
+  "MD024": { "siblings_only": true }  // duplicate headings allowed across sections
+}

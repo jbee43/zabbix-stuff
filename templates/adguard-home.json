@@ -1,0 +1,912 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "7df96b18c230490a9a0a9e2307226338",
+        "name": "Templates"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "e1c400ac5bb449118b1f59d4faa994da",
+        "template": "AdGuard Home by HTTP",
+        "name": "AdGuard Home by HTTP",
+        "description": "AdGuard Home DNS ad-blocker monitoring via HTTP API.\n\nTracks DNS query statistics, blocking rates, average processing time,\nprotection status, and service health.\n\nNo agent required \u2014 uses HTTP agent items against the AdGuard Home\nREST API (/control/stats, /control/status).\n\nSetup:\n1. Set {$ADGUARD.HOST} and {$ADGUARD.PORT} macros on the host\n2. Set {$ADGUARD.USER} and {$ADGUARD.PASSWORD} if authentication is enabled\n3. Ensure the Zabbix server/proxy can reach the AdGuard Home web interface",
+        "groups": [
+          {
+            "name": "Templates"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "6828fde99d034c429655d47fabaa7bc3",
+            "name": "Avg processing time",
+            "type": "DEPENDENT",
+            "key": "adguard.avg_processing_time",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "s",
+            "description": "Average DNS query processing time in seconds. Extracted from /control/stats.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.avg_processing_time"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "67f3acbea9c84b37aa7b4b4eac4a7f76",
+                "expression": "avg(/AdGuard Home by HTTP/adguard.avg_processing_time,5m)>{$ADGUARD.PROC.HIGH}",
+                "name": "Avg DNS processing time above {$ADGUARD.PROC.HIGH}s (high)",
+                "opdata": "Avg 5m: {ITEM.LASTVALUE1}",
+                "priority": "HIGH",
+                "description": "The 5-minute average DNS processing time exceeds the high threshold ({$ADGUARD.PROC.HIGH}s). DNS resolution is severely degraded \u2014 investigate upstream resolvers and system resources.",
+                "dependencies": [
+                  {
+                    "name": "Avg DNS processing time above {$ADGUARD.PROC.WARNING}s (warning)",
+                    "expression": "avg(/AdGuard Home by HTTP/adguard.avg_processing_time,5m)>{$ADGUARD.PROC.WARNING}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              },
+              {
+                "uuid": "0dfc271f75794fa7beb4349c2f9a87f1",
+                "expression": "avg(/AdGuard Home by HTTP/adguard.avg_processing_time,5m)>{$ADGUARD.PROC.WARNING}",
+                "name": "Avg DNS processing time above {$ADGUARD.PROC.WARNING}s (warning)",
+                "opdata": "Avg 5m: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "The 5-minute average DNS processing time exceeds the warning threshold ({$ADGUARD.PROC.WARNING}s). This may indicate upstream DNS issues or high load.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "performance"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "210d337f7f3d4915b978e40fb8414be5",
+            "name": "Blocked by filters",
+            "type": "DEPENDENT",
+            "key": "adguard.blocked_filtering",
+            "history": "14d",
+            "description": "Total number of DNS queries blocked by filter rules. Extracted from /control/stats.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.num_blocked_filtering"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "176c284c5e3c496e98b44e7b9991b55e",
+            "name": "Blocked parental",
+            "type": "DEPENDENT",
+            "key": "adguard.blocked_parental",
+            "history": "14d",
+            "description": "Total number of DNS queries blocked by parental control. Extracted from /control/stats.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.num_replaced_parental"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "5a6fc7d4ba064642b2fb2da1be692b8c",
+            "name": "Blocked safe browsing",
+            "type": "DEPENDENT",
+            "key": "adguard.blocked_safebrowsing",
+            "history": "14d",
+            "description": "Total number of DNS queries blocked by safe browsing protection. Extracted from /control/stats.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.num_replaced_safebrowsing"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "9b0fb5bbc2b142b681540e778d86f86d",
+            "name": "Block percentage",
+            "type": "CALCULATED",
+            "key": "adguard.block_pct",
+            "delay": "5m",
+            "history": "14d",
+            "value_type": "FLOAT",
+            "units": "%",
+            "params": "100 * last(//adguard.blocked_filtering) / last(//adguard.dns_queries)",
+            "description": "Percentage of DNS queries blocked by filters. Calculated from blocked_filtering / dns_queries.",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "528e3cc3cf9348c6b8dda68fcdfec98f",
+            "name": "DNS port",
+            "type": "DEPENDENT",
+            "key": "adguard.dns_port",
+            "history": "1d",
+            "trends": "0",
+            "description": "DNS listening port reported by AdGuard Home. Extracted from /control/status.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.dns_port"]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": ["1d"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "service"
+              },
+              {
+                "tag": "scope",
+                "value": "notice"
+              }
+            ]
+          },
+          {
+            "uuid": "08921fd033cb4ff8947d0957f7b379d6",
+            "name": "DNS queries",
+            "type": "DEPENDENT",
+            "key": "adguard.dns_queries",
+            "history": "14d",
+            "description": "Total number of DNS queries processed. Extracted from /control/stats.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.num_dns_queries"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.stats"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "dns"
+              },
+              {
+                "tag": "scope",
+                "value": "performance"
+              }
+            ]
+          },
+          {
+            "uuid": "d635277aa0cf44f1bb96859d90b9ba51",
+            "name": "Protection enabled",
+            "type": "DEPENDENT",
+            "key": "adguard.protection_enabled",
+            "history": "14d",
+            "trends": "0",
+            "description": "Whether DNS filtering protection is currently enabled (1) or disabled (0). Extracted from /control/status.",
+            "valuemap": {
+              "name": "AdGuard protection status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.protection_enabled"]
+              },
+              {
+                "type": "BOOL_TO_DECIMAL"
+              }
+            ],
+            "master_item": {
+              "key": "adguard.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "service"
+              },
+              {
+                "tag": "scope",
+                "value": "availability"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "579d3d70ac424cfc8b954ae1749f595c",
+                "expression": "last(/AdGuard Home by HTTP/adguard.protection_enabled)=0",
+                "name": "DNS filtering protection is disabled",
+                "opdata": "Protection: {ITEM.LASTVALUE1}",
+                "priority": "HIGH",
+                "description": "AdGuard Home DNS filtering protection has been disabled. All queries will pass through unfiltered until re-enabled.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "b2467cfecce44563b5f1da7b2d3dc271",
+            "name": "Running",
+            "type": "DEPENDENT",
+            "key": "adguard.running",
+            "history": "14d",
+            "trends": "0",
+            "description": "Whether the AdGuard Home service is running (1) or stopped (0). Extracted from /control/status.",
+            "valuemap": {
+              "name": "AdGuard service status"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.running"]
+              },
+              {
+                "type": "BOOL_TO_DECIMAL"
+              }
+            ],
+            "master_item": {
+              "key": "adguard.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "service"
+              },
+              {
+                "tag": "scope",
+                "value": "availability"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "c822aecc754747be96da6982ddac397c",
+                "expression": "last(/AdGuard Home by HTTP/adguard.running)=0",
+                "name": "AdGuard Home service is not running",
+                "opdata": "Status: {ITEM.LASTVALUE1}",
+                "priority": "DISASTER",
+                "description": "AdGuard Home reports it is not running. DNS resolution via AdGuard is unavailable.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "a616e8f622804efab6d6f44dd1b49212",
+            "name": "Stats (raw)",
+            "type": "HTTP_AGENT",
+            "key": "adguard.stats",
+            "delay": "5m",
+            "history": "0",
+            "value_type": "TEXT",
+            "authtype": "BASIC",
+            "username": "{$ADGUARD.USER}",
+            "password": "{$ADGUARD.PASSWORD}",
+            "description": "Master item: raw JSON from /control/stats endpoint. Not stored \u2014 dependent items extract individual metrics.",
+            "url": "http://{$ADGUARD.HOST}:{$ADGUARD.PORT}/control/stats",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "6c480b16035845cfbe997a89492aebc1",
+                "expression": "nodata(/AdGuard Home by HTTP/adguard.stats,{$ADGUARD.NODATA})=1",
+                "name": "No data received for {$ADGUARD.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "No data received from AdGuard Home /control/stats endpoint. Verify the host is reachable, credentials are correct, and the web interface is running.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "f45d6efe260c4619a8218cb4784a8a02",
+            "name": "Status (raw)",
+            "type": "HTTP_AGENT",
+            "key": "adguard.status",
+            "delay": "5m",
+            "history": "0",
+            "value_type": "TEXT",
+            "authtype": "BASIC",
+            "username": "{$ADGUARD.USER}",
+            "password": "{$ADGUARD.PASSWORD}",
+            "description": "Master item: raw JSON from /control/status endpoint. Not stored \u2014 dependent items extract individual metrics.",
+            "url": "http://{$ADGUARD.HOST}:{$ADGUARD.PORT}/control/status",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ]
+          },
+          {
+            "uuid": "cf99f99b20a44bb986ffabfe8b282ea0",
+            "name": "Version",
+            "type": "DEPENDENT",
+            "key": "adguard.version",
+            "history": "1d",
+            "value_type": "CHAR",
+            "description": "AdGuard Home version string. Extracted from /control/status.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": ["$.version"]
+              },
+              {
+                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                "parameters": ["1d"]
+              }
+            ],
+            "master_item": {
+              "key": "adguard.status"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "service"
+              },
+              {
+                "tag": "scope",
+                "value": "notice"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "f525b952d48248d89e08a4113ce7bfde",
+                "expression": "change(/AdGuard Home by HTTP/adguard.version)=1 and length(last(/AdGuard Home by HTTP/adguard.version))>0",
+                "name": "AdGuard Home version changed to {ITEM.LASTVALUE1}",
+                "opdata": "Version: {ITEM.LASTVALUE1}",
+                "priority": "INFO",
+                "description": "AdGuard Home has been updated to a new version. Verify the new version is working correctly.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "network"
+          },
+          {
+            "tag": "target",
+            "value": "adguard"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$ADGUARD.HOST}",
+            "value": "localhost",
+            "description": "AdGuard Home hostname or IP address."
+          },
+          {
+            "macro": "{$ADGUARD.NODATA}",
+            "value": "15m",
+            "description": "No-data timeout for the stats master item. Set higher than collection interval to account for transient failures."
+          },
+          {
+            "macro": "{$ADGUARD.PASSWORD}",
+            "type": "SECRET_TEXT",
+            "description": "HTTP Basic Auth password for the AdGuard Home web interface."
+          },
+          {
+            "macro": "{$ADGUARD.PORT}",
+            "value": "3000",
+            "description": "AdGuard Home web interface port."
+          },
+          {
+            "macro": "{$ADGUARD.PROC.HIGH}",
+            "value": "0.5",
+            "description": "Avg DNS processing time high threshold (seconds). Triggers HIGH severity alert."
+          },
+          {
+            "macro": "{$ADGUARD.PROC.WARNING}",
+            "value": "0.1",
+            "description": "Avg DNS processing time warning threshold (seconds). Triggers WARNING severity alert."
+          },
+          {
+            "macro": "{$ADGUARD.USER}",
+            "description": "HTTP Basic Auth username for the AdGuard Home web interface."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "68b67327920843c083ea1c7f254e0a61",
+            "name": "AdGuard Home",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Running status",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "key": "adguard.running"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "DNS queries",
+                    "y": "2",
+                    "width": "36",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "name": "DNS queries"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "ADQRY"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Avg processing time",
+                    "y": "7",
+                    "width": "72",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "name": "Avg processing time"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "ADPRC"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Protection status",
+                    "x": "18",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "key": "adguard.protection_enabled"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Version",
+                    "x": "36",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "key": "adguard.version"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graph",
+                    "name": "Block percentage",
+                    "x": "36",
+                    "y": "2",
+                    "width": "36",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "GRAPH",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "name": "Block percentage"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "ADBLK"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Total DNS queries",
+                    "x": "54",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "adv_conf",
+                        "value": "1"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "AdGuard Home by HTTP",
+                          "key": "adguard.dns_queries"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "valuemaps": [
+          {
+            "uuid": "6f55e1a51fa04be2bf58a29b861a01a1",
+            "name": "AdGuard protection status",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "Disabled"
+              },
+              {
+                "value": "1",
+                "newvalue": "Enabled"
+              }
+            ]
+          },
+          {
+            "uuid": "4177ba4aaf374971b11228583c1c8f8d",
+            "name": "AdGuard service status",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "Stopped"
+              },
+              {
+                "value": "1",
+                "newvalue": "Running"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "graphs": [
+      {
+        "uuid": "c3b036195b944b1c83e16ab39c28cf72",
+        "name": "Avg processing time",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "FF6F00",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.avg_processing_time"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "577500ba59ad4c31903794a309a6d803",
+        "name": "Block percentage",
+        "ymin_type_1": "FIXED",
+        "ymax_type_1": "FIXED",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "F44336",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.block_pct"
+            }
+          }
+        ]
+      },
+      {
+        "uuid": "0542fdfaed9948968f7da0a174a667fb",
+        "name": "DNS queries",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+          {
+            "drawtype": "GRADIENT_LINE",
+            "color": "42A5F5",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.dns_queries"
+            }
+          },
+          {
+            "sortorder": "1",
+            "drawtype": "BOLD_LINE",
+            "color": "EF5350",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.blocked_filtering"
+            }
+          },
+          {
+            "sortorder": "2",
+            "drawtype": "BOLD_LINE",
+            "color": "FFA726",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.blocked_safebrowsing"
+            }
+          },
+          {
+            "sortorder": "3",
+            "drawtype": "BOLD_LINE",
+            "color": "AB47BC",
+            "calc_fnc": "ALL",
+            "item": {
+              "host": "AdGuard Home by HTTP",
+              "key": "adguard.blocked_parental"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

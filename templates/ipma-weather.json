@@ -1,0 +1,1788 @@
+{
+  "zabbix_export": {
+    "version": "7.2",
+    "template_groups": [
+      {
+        "uuid": "7df96b18c230490a9a0a9e2307226338",
+        "name": "Templates"
+      }
+    ],
+    "templates": [
+      {
+        "uuid": "127a40f2c1c949ea84668df3c48dee21",
+        "template": "Weather by IPMA HTTP",
+        "name": "Weather by IPMA HTTP",
+        "description": "Weather monitoring for Portugal via IPMA (Instituto Português do Mar e da Atmosfera) public Open Data API.\nProvides 5-day daily forecasts and active weather warnings (next 3 days).\n\nNo agent required — uses HTTP agent items.\n\nSetup:\n1. Locate the area at https://api.ipma.pt/open-data/distrits-islands.json and copy 'globalIdLocal' → {$IPMA.LOCATION.ID}\n2. Copy 'idAreaAviso' → {$IPMA.WARNING.AREA.ID}\n3. (Optional) Tune {$IPMA.RAIN.PROB.WARN}, {$IPMA.TEMP.MAX.HIGH}, {$IPMA.TEMP.MIN.LOW}, {$IPMA.WIND.STRONG}, {$IPMA.WIND.VERY.STRONG}\n\nData sources:\n- Forecast: https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/{globalIdLocal}.json\n- Warnings: https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json\n- Weather type IDs: https://api.ipma.pt/open-data/weather-type-classe.json\n- Wind speed classes: https://api.ipma.pt/open-data/wind-speed-daily-classe.json",
+        "groups": [
+          {
+            "name": "Templates"
+          }
+        ],
+        "items": [
+          {
+            "uuid": "7d5c21c312c74f2a923a98bdb63d61aa",
+            "name": "Forecast: get raw",
+            "type": "HTTP_AGENT",
+            "key": "ipma.forecast.raw",
+            "delay": "{$IPMA.FORECAST.INTERVAL}",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item: 5-day daily forecast JSON for {$IPMA.LOCATION.ID}. Not stored — dependent items extract individual metrics. The '$.data' array is forwarded so prototypes only deal with the forecast objects.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.data"
+                ]
+              }
+            ],
+            "url": "https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/{$IPMA.LOCATION.ID}.json",
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "455995060340429b9b9354bdd93479b2",
+                "expression": "nodata(/Weather by IPMA HTTP/ipma.forecast.raw,{$IPMA.FORECAST.NODATA})=1",
+                "name": "IPMA forecast: no data for {$IPMA.FORECAST.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The IPMA forecast endpoint has not returned data within {$IPMA.FORECAST.NODATA}. The API may be unreachable or the configured location ID is invalid.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce15",
+            "name": "Forecast today: rain probability",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.rain",
+            "history": "7d",
+            "value_type": "FLOAT",
+            "trends": "90d",
+            "units": "%",
+            "description": "Precipitation probability for today as a percentage (0–100%).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.precipitaProb"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "precipitation"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "5e8f3a91c2d44b7896a0123456abce16",
+                "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.rain)>{$IPMA.RAIN.PROB.WARN}",
+                "name": "Today: rain probability above {$IPMA.RAIN.PROB.WARN}%",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "INFO",
+                "description": "Rain probability for today exceeds {$IPMA.RAIN.PROB.WARN}%.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce10",
+            "name": "Forecast today: raw",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.raw",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Internal helper: extracts the soonest forecast object (data[0]) from the master 5-day array. IPMA orders the array chronologically with today (or, on day-of-publication boundary, tomorrow) first, so this is the best 'right now' snapshot without timezone or date-format edge cases. Not stored — dependent items extract individual metrics.",
+            "preprocessing": [
+              {
+                "type": "JAVASCRIPT",
+                "parameters": [
+                  "var arr = JSON.parse(value);\nreturn (Array.isArray(arr) && arr.length > 0) ? JSON.stringify(arr[0]) : '{}';"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce11",
+            "name": "Forecast today: temperature, max",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.temperature.max",
+            "history": "7d",
+            "value_type": "FLOAT",
+            "trends": "90d",
+            "units": "°C",
+            "description": "Maximum temperature forecast for today in degrees Celsius.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.tMax"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "temperature"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "5e8f3a91c2d44b7896a0123456abce12",
+                "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.temperature.max)>{$IPMA.TEMP.MAX.HIGH}",
+                "name": "Today: temperature max. above {$IPMA.TEMP.MAX.HIGH}°C",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "AVERAGE",
+                "description": "Maximum temperature for today exceeds {$IPMA.TEMP.MAX.HIGH}°C — extreme heat warning.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce13",
+            "name": "Forecast today: temperature, min",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.temperature.min",
+            "history": "7d",
+            "value_type": "FLOAT",
+            "trends": "90d",
+            "units": "°C",
+            "description": "Minimum temperature forecast for today in degrees Celsius.",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.tMin"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "temperature"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "5e8f3a91c2d44b7896a0123456abce14",
+                "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.temperature.min)<{$IPMA.TEMP.MIN.LOW}",
+                "name": "Today: temperature min. below {$IPMA.TEMP.MIN.LOW}°C",
+                "opdata": "Last: {ITEM.LASTVALUE1}",
+                "priority": "AVERAGE",
+                "description": "Minimum temperature for today is below {$IPMA.TEMP.MIN.LOW}°C — frost/freeze warning.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce17",
+            "name": "Forecast today: weather type",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.weather.type",
+            "history": "7d",
+            "trends": "0",
+            "description": "IPMA weather type ID for today (0–30). Rendered via the 'IPMA weather type' value map.",
+            "valuemap": {
+              "name": "IPMA weather type"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.idWeatherType"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "weather-type"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce18",
+            "name": "Forecast today: wind direction",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.wind.direction",
+            "history": "7d",
+            "value_type": "CHAR",
+            "description": "Predominant wind direction for today as a compass abbreviation (N, NE, E, SE, S, SW, W, NW).",
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.predWindDir"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "wind"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce19",
+            "name": "Forecast today: wind speed class",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.today.wind.speed",
+            "history": "7d",
+            "trends": "90d",
+            "description": "IPMA daily wind speed class for today (1=Weak, 2=Moderate, 3=Strong, 4=Very strong). Rendered via the 'IPMA wind speed class' value map.",
+            "valuemap": {
+              "name": "IPMA wind speed class"
+            },
+            "preprocessing": [
+              {
+                "type": "JSONPATH",
+                "parameters": [
+                  "$.classWindSpeed"
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.today.raw"
+            },
+            "tags": [
+              {
+                "tag": "component",
+                "value": "wind"
+              },
+              {
+                "tag": "scope",
+                "value": "forecast"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "5e8f3a91c2d44b7896a0123456abce1a",
+                "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.wind.speed)>={$IPMA.WIND.STRONG}",
+                "name": "Today: wind is strong (or stronger)",
+                "opdata": "Class: {ITEM.LASTVALUE1}",
+                "priority": "WARNING",
+                "description": "IPMA wind speed class for today is at or above {$IPMA.WIND.STRONG} (Strong).",
+                "dependencies": [
+                  {
+                    "name": "Today: wind is very strong",
+                    "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.wind.speed)>={$IPMA.WIND.VERY.STRONG}"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              },
+              {
+                "uuid": "5e8f3a91c2d44b7896a0123456abce1b",
+                "expression": "last(/Weather by IPMA HTTP/ipma.forecast.today.wind.speed)>={$IPMA.WIND.VERY.STRONG}",
+                "name": "Today: wind is very strong",
+                "opdata": "Class: {ITEM.LASTVALUE1}",
+                "priority": "AVERAGE",
+                "description": "IPMA wind speed class for today is at or above {$IPMA.WIND.VERY.STRONG} (Very strong) — take precautions for outdoor structures and equipment.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "7c634397800446b9be8293885d40e8c7",
+            "name": "Warnings: get raw",
+            "type": "HTTP_AGENT",
+            "key": "ipma.warning.raw",
+            "delay": "{$IPMA.WARNING.INTERVAL}",
+            "history": "0",
+            "value_type": "TEXT",
+            "description": "Master item: weather warnings JSON for the next 3 days (all areas). The discovery filter restricts items to {$IPMA.WARNING.AREA.ID}.",
+            "url": "https://api.ipma.pt/open-data/forecast/warnings/warnings_www.json",
+            "follow_redirects": "NO",
+            "verify_peer": "YES",
+            "verify_host": "YES",
+            "tags": [
+              {
+                "tag": "component",
+                "value": "raw"
+              },
+              {
+                "tag": "scope",
+                "value": "raw"
+              }
+            ],
+            "triggers": [
+              {
+                "uuid": "18d996c0a2c24e8bb3e225577898b46c",
+                "expression": "nodata(/Weather by IPMA HTTP/ipma.warning.raw,{$IPMA.WARNING.NODATA})=1",
+                "name": "IPMA warnings: no data for {$IPMA.WARNING.NODATA}",
+                "opdata": "Last received: {ITEM.LASTCLOCK}",
+                "priority": "WARNING",
+                "description": "The IPMA warnings endpoint has not returned data within {$IPMA.WARNING.NODATA}. The API may be unreachable.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "availability"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce1d",
+            "name": "Warnings: active count",
+            "type": "CALCULATED",
+            "key": "ipma.warning.summary.count",
+            "delay": "{$IPMA.WARNING.INTERVAL}",
+            "history": "14d",
+            "params": "count(last_foreach(/Weather by IPMA HTTP/ipma.warning.awareness[*]),\"ge\",\"1\")",
+            "description": "Count of warning categories currently at yellow or above (awareness >= 1) within the configured area. Returns 0 when no warning items have been discovered yet.",
+            "preprocessing": [
+              {
+                "type": "CHECK_NOT_SUPPORTED",
+                "parameters": [
+                  "0",
+                  ".*"
+                ],
+                "error_handler": "CUSTOM_VALUE",
+                "error_handler_params": "0"
+              }
+            ],
+            "tags": [
+              {
+                "tag": "component",
+                "value": "warning"
+              },
+              {
+                "tag": "scope",
+                "value": "warning"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abce1c",
+            "name": "Warnings: max awareness level",
+            "type": "CALCULATED",
+            "key": "ipma.warning.summary.max",
+            "delay": "{$IPMA.WARNING.INTERVAL}",
+            "history": "14d",
+            "params": "max(last_foreach(/Weather by IPMA HTTP/ipma.warning.awareness[*]))",
+            "description": "Maximum awareness level (0=green, 3=red) across every discovered warning category in the configured area. Returns 0 when no warning items have been discovered yet.",
+            "valuemap": {
+              "name": "IPMA awareness level"
+            },
+            "preprocessing": [
+              {
+                "type": "CHECK_NOT_SUPPORTED",
+                "parameters": [
+                  "0",
+                  ".*"
+                ],
+                "error_handler": "CUSTOM_VALUE",
+                "error_handler_params": "0"
+              }
+            ],
+            "tags": [
+              {
+                "tag": "component",
+                "value": "warning"
+              },
+              {
+                "tag": "scope",
+                "value": "warning"
+              }
+            ]
+          }
+        ],
+        "discovery_rules": [
+          {
+            "uuid": "59dc1ccdb0c4478c82165f23bc51500c",
+            "name": "Forecast discovery",
+            "type": "DEPENDENT",
+            "key": "ipma.forecast.discovery",
+            "lifetime": "1h",
+            "description": "Discovers forecast dates from the IPMA 5-day forecast response. Creates per-day items for temperature (min/max), rain probability, weather type, wind speed and direction.",
+            "item_prototypes": [
+              {
+                "uuid": "ccf315ff839c41578788faf62271dabe",
+                "name": "Forecast {#DATE}: rain probability",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.rain[{#DATE}]",
+                "history": "7d",
+                "value_type": "FLOAT",
+                "trends": "90d",
+                "units": "%",
+                "description": "Precipitation probability for {#DATE} as a percentage (0–100%).",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].precipitaProb.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "precipitation"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              },
+              {
+                "uuid": "662215e940f14ee18e78bdd7c72cb295",
+                "name": "Forecast {#DATE}: temperature, max",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.temperature.max[{#DATE}]",
+                "history": "7d",
+                "value_type": "FLOAT",
+                "trends": "90d",
+                "units": "°C",
+                "description": "Maximum temperature forecast for {#DATE} in degrees Celsius.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].tMax.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              },
+              {
+                "uuid": "8646ea63413347358084a4e3923ead4a",
+                "name": "Forecast {#DATE}: temperature, min",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.temperature.min[{#DATE}]",
+                "history": "7d",
+                "value_type": "FLOAT",
+                "trends": "90d",
+                "units": "°C",
+                "description": "Minimum temperature forecast for {#DATE} in degrees Celsius.",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].tMin.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "temperature"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              },
+              {
+                "uuid": "cc309eb6ba1144bc92e9cb4609f2237f",
+                "name": "Forecast {#DATE}: weather type",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.weather.type[{#DATE}]",
+                "history": "7d",
+                "trends": "0",
+                "description": "IPMA weather type ID for {#DATE} (0–30). Rendered via the 'IPMA weather type' value map (e.g. Clear sky, Partly cloudy, Showers/rain, Thunderstorms).",
+                "valuemap": {
+                  "name": "IPMA weather type"
+                },
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].idWeatherType.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "weather-type"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              },
+              {
+                "uuid": "27222feb1aef4f92b9c853eb94b6346d",
+                "name": "Forecast {#DATE}: wind direction",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.wind.direction[{#DATE}]",
+                "history": "7d",
+                "value_type": "CHAR",
+                "description": "Predominant wind direction for {#DATE} as a compass abbreviation (N, NE, E, SE, S, SW, W, NW).",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].predWindDir.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "wind"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              },
+              {
+                "uuid": "0796ba5f86874179b9f1b593434379f2",
+                "name": "Forecast {#DATE}: wind speed class",
+                "type": "DEPENDENT",
+                "key": "ipma.forecast.wind.speed[{#DATE}]",
+                "history": "7d",
+                "trends": "90d",
+                "description": "IPMA daily wind speed class for {#DATE} (1=Weak, 2=Moderate, 3=Strong, 4=Very strong). Rendered via the 'IPMA wind speed class' value map.",
+                "valuemap": {
+                  "name": "IPMA wind speed class"
+                },
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.forecastDate==\"{#DATE}\")].classWindSpeed.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.forecast.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "wind"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "forecast"
+                  }
+                ]
+              }
+            ],
+            "graph_prototypes": [
+              {
+                "uuid": "fa289a726a884c76892689832246da53",
+                "name": "Forecast {#DATE} rain probability",
+                "ymin_type_1": "FIXED",
+                "ymax_type_1": "FIXED",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "1E88E5",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Weather by IPMA HTTP",
+                      "key": "ipma.forecast.rain[{#DATE}]"
+                    }
+                  }
+                ]
+              },
+              {
+                "uuid": "da92cb55478748779031bfa2b624fcf5",
+                "name": "Forecast {#DATE} temperatures",
+                "graph_items": [
+                  {
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "AD1457",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Weather by IPMA HTTP",
+                      "key": "ipma.forecast.temperature.max[{#DATE}]"
+                    }
+                  },
+                  {
+                    "sortorder": "1",
+                    "drawtype": "GRADIENT_LINE",
+                    "color": "7986CB",
+                    "calc_fnc": "ALL",
+                    "item": {
+                      "host": "Weather by IPMA HTTP",
+                      "key": "ipma.forecast.temperature.min[{#DATE}]"
+                    }
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.forecast.raw"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#DATE}",
+                "path": "$.forecastDate"
+              }
+            ]
+          },
+          {
+            "uuid": "84a45dba74e442809ae967dd9f08af86",
+            "name": "Warning discovery",
+            "type": "DEPENDENT",
+            "key": "ipma.warning.discovery",
+            "filter": {
+              "conditions": [
+                {
+                  "macro": "{#WARNING.AREA.ID}",
+                  "value": "{$IPMA.WARNING.AREA.ID}"
+                }
+              ]
+            },
+            "lifetime": "1h",
+            "description": "Discovers active weather warning categories for {$IPMA.WARNING.AREA.ID} from the IPMA warnings response. Creates per-category items for awareness level, validity window and warning text.",
+            "item_prototypes": [
+              {
+                "uuid": "15ae762710ef495ca0bc1288dc0e501e",
+                "name": "Warning {#WARNING.TYPE}: awareness level",
+                "type": "DEPENDENT",
+                "key": "ipma.warning.awareness[{#WARNING.TYPE}]",
+                "history": "14d",
+                "description": "Awareness level for {#WARNING.TYPE} warnings: 0=green (no warning), 1=yellow, 2=orange, 3=red. Rendered via the 'IPMA awareness level' value map.",
+                "valuemap": {
+                  "name": "IPMA awareness level"
+                },
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.awarenessTypeName==\"{#WARNING.TYPE}\")].awarenessLevelID.first()"
+                    ]
+                  },
+                  {
+                    "type": "JAVASCRIPT",
+                    "parameters": [
+                      "var levels = {green: 0, yellow: 1, orange: 2, red: 3};\nvar level = levels[String(value).toLowerCase()];\nreturn level === undefined ? 0 : level;"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.warning.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "warning"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "warning"
+                  }
+                ]
+              },
+              {
+                "uuid": "cdfff2acccf74165a5c4cfd06ccf98dc",
+                "name": "Warning {#WARNING.TYPE}: end time",
+                "type": "DEPENDENT",
+                "key": "ipma.warning.endtime[{#WARNING.TYPE}]",
+                "history": "14d",
+                "trends": "0",
+                "units": "unixtime",
+                "description": "End of the {#WARNING.TYPE} warning validity window (UTC, displayed in local time by Zabbix).",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.awarenessTypeName==\"{#WARNING.TYPE}\")].endTime.first()"
+                    ]
+                  },
+                  {
+                    "type": "JAVASCRIPT",
+                    "parameters": [
+                      "if (!value) { return 0; }\nvar s = String(value);\nif (!/[zZ]|[+-]\\d{2}:?\\d{2}$/.test(s)) { s += 'Z'; }\nvar t = Date.parse(s);\nreturn isNaN(t) ? 0 : Math.floor(t / 1000);"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.warning.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "warning"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "warning"
+                  }
+                ]
+              },
+              {
+                "uuid": "447b1949a2eb42a59b673b5fb7e569f8",
+                "name": "Warning {#WARNING.TYPE}: start time",
+                "type": "DEPENDENT",
+                "key": "ipma.warning.starttime[{#WARNING.TYPE}]",
+                "history": "14d",
+                "trends": "0",
+                "units": "unixtime",
+                "description": "Start of the {#WARNING.TYPE} warning validity window (UTC, displayed in local time by Zabbix).",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.awarenessTypeName==\"{#WARNING.TYPE}\")].startTime.first()"
+                    ]
+                  },
+                  {
+                    "type": "JAVASCRIPT",
+                    "parameters": [
+                      "if (!value) { return 0; }\nvar s = String(value);\nif (!/[zZ]|[+-]\\d{2}:?\\d{2}$/.test(s)) { s += 'Z'; }\nvar t = Date.parse(s);\nreturn isNaN(t) ? 0 : Math.floor(t / 1000);"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.warning.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "warning"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "warning"
+                  }
+                ]
+              },
+              {
+                "uuid": "69552a90f0264731a070f5bd7ab0cf13",
+                "name": "Warning {#WARNING.TYPE}: text",
+                "type": "DEPENDENT",
+                "key": "ipma.warning.text[{#WARNING.TYPE}]",
+                "history": "14d",
+                "value_type": "TEXT",
+                "description": "Description text issued by IPMA for the {#WARNING.TYPE} warning (Portuguese).",
+                "preprocessing": [
+                  {
+                    "type": "JSONPATH",
+                    "parameters": [
+                      "$[?(@.awarenessTypeName==\"{#WARNING.TYPE}\")].text.first()"
+                    ]
+                  }
+                ],
+                "master_item": {
+                  "key": "ipma.warning.raw"
+                },
+                "tags": [
+                  {
+                    "tag": "component",
+                    "value": "warning"
+                  },
+                  {
+                    "tag": "scope",
+                    "value": "warning"
+                  }
+                ]
+              }
+            ],
+            "trigger_prototypes": [
+              {
+                "uuid": "4fd4b2b1b0a34725a9b68d0f610dbe49",
+                "expression": "last(/Weather by IPMA HTTP/ipma.warning.awareness[{#WARNING.TYPE}])>=2 and last(/Weather by IPMA HTTP/ipma.warning.starttime[{#WARNING.TYPE}])<=now() and last(/Weather by IPMA HTTP/ipma.warning.endtime[{#WARNING.TYPE}])>=now()",
+                "name": "Warning {#WARNING.TYPE} active: orange",
+                "opdata": "{?last(//ipma.warning.text[{#WARNING.TYPE}])}",
+                "priority": "AVERAGE",
+                "description": "IPMA has issued an ORANGE warning for {#WARNING.TYPE} that is currently within its validity window. Moderate to high severity.",
+                "dependencies": [
+                  {
+                    "name": "Warning {#WARNING.TYPE} active: red",
+                    "expression": "last(/Weather by IPMA HTTP/ipma.warning.awareness[{#WARNING.TYPE}])>=3 and last(/Weather by IPMA HTTP/ipma.warning.starttime[{#WARNING.TYPE}])<=now() and last(/Weather by IPMA HTTP/ipma.warning.endtime[{#WARNING.TYPE}])>=now()"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              },
+              {
+                "uuid": "fe1bb6d54d084315b39077eb1e4f52a6",
+                "expression": "last(/Weather by IPMA HTTP/ipma.warning.awareness[{#WARNING.TYPE}])>=3 and last(/Weather by IPMA HTTP/ipma.warning.starttime[{#WARNING.TYPE}])<=now() and last(/Weather by IPMA HTTP/ipma.warning.endtime[{#WARNING.TYPE}])>=now()",
+                "name": "Warning {#WARNING.TYPE} active: red",
+                "opdata": "{?last(//ipma.warning.text[{#WARNING.TYPE}])}",
+                "priority": "HIGH",
+                "description": "IPMA has issued a RED warning for {#WARNING.TYPE} that is currently within its validity window. Highest severity — take immediate precautions.",
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              },
+              {
+                "uuid": "53c3891a7bc649be93f8b7d72bcfbe7d",
+                "expression": "last(/Weather by IPMA HTTP/ipma.warning.awareness[{#WARNING.TYPE}])>=1 and last(/Weather by IPMA HTTP/ipma.warning.starttime[{#WARNING.TYPE}])<=now() and last(/Weather by IPMA HTTP/ipma.warning.endtime[{#WARNING.TYPE}])>=now()",
+                "name": "Warning {#WARNING.TYPE} active: yellow",
+                "opdata": "{?last(//ipma.warning.text[{#WARNING.TYPE}])}",
+                "priority": "WARNING",
+                "description": "IPMA has issued a YELLOW warning for {#WARNING.TYPE} that is currently within its validity window. Low to moderate severity.",
+                "dependencies": [
+                  {
+                    "name": "Warning {#WARNING.TYPE} active: orange",
+                    "expression": "last(/Weather by IPMA HTTP/ipma.warning.awareness[{#WARNING.TYPE}])>=2 and last(/Weather by IPMA HTTP/ipma.warning.starttime[{#WARNING.TYPE}])<=now() and last(/Weather by IPMA HTTP/ipma.warning.endtime[{#WARNING.TYPE}])>=now()"
+                  }
+                ],
+                "tags": [
+                  {
+                    "tag": "scope",
+                    "value": "notice"
+                  }
+                ]
+              }
+            ],
+            "master_item": {
+              "key": "ipma.warning.raw"
+            },
+            "lld_macro_paths": [
+              {
+                "lld_macro": "{#WARNING.AREA.ID}",
+                "path": "$.idAreaAviso"
+              },
+              {
+                "lld_macro": "{#WARNING.TYPE}",
+                "path": "$.awarenessTypeName"
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {
+            "tag": "class",
+            "value": "environment"
+          },
+          {
+            "tag": "target",
+            "value": "ipma-weather"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$IPMA.FORECAST.INTERVAL}",
+            "value": "30m",
+            "description": "Polling interval for the IPMA forecast endpoint. IPMA publishes daily forecasts ~2x/day, so 30m is a sensible default; lower wastes calls."
+          },
+          {
+            "macro": "{$IPMA.FORECAST.NODATA}",
+            "value": "2h",
+            "description": "No-data threshold for the IPMA forecast master item. Should be >= 2x {$IPMA.FORECAST.INTERVAL} to absorb transient API failures."
+          },
+          {
+            "macro": "{$IPMA.LOCATION.ID}",
+            "value": "1110600",
+            "description": "IPMA 'globalIdLocal' for the area whose forecast you want. Look it up in https://api.ipma.pt/open-data/distrits-islands.json (default 1110600 = Lisboa)."
+          },
+          {
+            "macro": "{$IPMA.RAIN.PROB.WARN}",
+            "value": "50",
+            "description": "Rain probability threshold (%). Triggers an INFO alert per forecast day exceeding this value."
+          },
+          {
+            "macro": "{$IPMA.TEMP.MAX.HIGH}",
+            "value": "40",
+            "description": "Maximum-temperature alert threshold (°C). Triggers an AVERAGE alert per forecast day above this value."
+          },
+          {
+            "macro": "{$IPMA.TEMP.MIN.LOW}",
+            "value": "1",
+            "description": "Minimum-temperature alert threshold (°C). Triggers an AVERAGE alert per forecast day below this value."
+          },
+          {
+            "macro": "{$IPMA.WARNING.AREA.ID}",
+            "value": "LSB",
+            "description": "IPMA 'idAreaAviso' for the warning area to filter (e.g. LSB, PTG, FAR). Look it up in https://api.ipma.pt/open-data/distrits-islands.json (default LSB = Lisboa)."
+          },
+          {
+            "macro": "{$IPMA.WARNING.INTERVAL}",
+            "value": "10m",
+            "description": "Polling interval for the IPMA warnings endpoint. Warnings can be issued or revised at any time, so polling more frequently than forecasts is appropriate."
+          },
+          {
+            "macro": "{$IPMA.WARNING.NODATA}",
+            "value": "30m",
+            "description": "No-data threshold for the IPMA warnings master item. Should be >= 2x {$IPMA.WARNING.INTERVAL}."
+          },
+          {
+            "macro": "{$IPMA.WIND.STRONG}",
+            "value": "3",
+            "description": "Wind speed class threshold for the WARNING-severity 'strong wind' trigger (1=Weak, 2=Moderate, 3=Strong, 4=Very strong)."
+          },
+          {
+            "macro": "{$IPMA.WIND.VERY.STRONG}",
+            "value": "4",
+            "description": "Wind speed class threshold for the AVERAGE-severity 'very strong wind' trigger (1=Weak, 2=Moderate, 3=Strong, 4=Very strong)."
+          }
+        ],
+        "dashboards": [
+          {
+            "uuid": "22d83d75ffe64bda9af2cd46b82c8bbe",
+            "name": "Weather IPMA",
+            "display_period": "10",
+            "auto_start": "NO",
+            "pages": [
+              {
+                "name": "Overview",
+                "widgets": [
+                  {
+                    "type": "item",
+                    "name": "Max awareness level",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.warning.summary.max"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "FFB300"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.color",
+                        "value": "FB8C00"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.threshold",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.3.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.3.threshold",
+                        "value": "3"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: rain probability",
+                    "y": "2",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "down_color",
+                        "value": "81D4FA"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.rain"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "81D4FA"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "25"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "1E88E5"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "50"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.color",
+                        "value": "044174"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.threshold",
+                        "value": "75"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.3.color",
+                        "value": "062350"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.3.threshold",
+                        "value": "100"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "updown_color",
+                        "value": "878787"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "up_color",
+                        "value": "044174"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graphprototype",
+                    "name": "Forecast temperatures",
+                    "y": "4",
+                    "width": "72",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "columns",
+                        "value": "3"
+                      },
+                      {
+                        "type": "GRAPH_PROTOTYPE",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "name": "Forecast {#DATE} temperatures"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "MXUEZ"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "graphprototype",
+                    "name": "Forecast rain probabilities",
+                    "y": "9",
+                    "width": "72",
+                    "height": "5",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "columns",
+                        "value": "3"
+                      },
+                      {
+                        "type": "GRAPH_PROTOTYPE",
+                        "name": "graphid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "name": "Forecast {#DATE} rain probability"
+                        }
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "reference",
+                        "value": "NGDZH"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Active warnings",
+                    "x": "18",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.warning.summary.count"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "43A047"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: weather",
+                    "x": "18",
+                    "y": "2",
+                    "width": "27",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.weather.type"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: max temperature",
+                    "x": "36",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "1"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.temperature.max"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "FCCB1D"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "30"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "E65660"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "40"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: wind speed",
+                    "x": "45",
+                    "y": "2",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "0"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "down_color",
+                        "value": "FFB300"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.wind.speed"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.color",
+                        "value": "FFB300"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.0.threshold",
+                        "value": "2"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.color",
+                        "value": "FF5722"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.1.threshold",
+                        "value": "3"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.color",
+                        "value": "C62828"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "thresholds.2.threshold",
+                        "value": "4"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "updown_color",
+                        "value": "878787"
+                      },
+                      {
+                        "type": "STRING",
+                        "name": "up_color",
+                        "value": "FF5722"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: min temperature",
+                    "x": "54",
+                    "width": "18",
+                    "fields": [
+                      {
+                        "type": "INTEGER",
+                        "name": "decimal_places",
+                        "value": "1"
+                      },
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.temperature.min"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "item",
+                    "name": "Today: wind direction",
+                    "x": "63",
+                    "y": "2",
+                    "width": "9",
+                    "fields": [
+                      {
+                        "type": "ITEM",
+                        "name": "itemid.0",
+                        "value": {
+                          "host": "Weather by IPMA HTTP",
+                          "key": "ipma.forecast.today.wind.direction"
+                        }
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "rf_rate",
+                        "value": "30"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.0",
+                        "value": "2"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.1",
+                        "value": "3"
+                      },
+                      {
+                        "type": "INTEGER",
+                        "name": "show.2",
+                        "value": "4"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "valuemaps": [
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abcde1",
+            "name": "IPMA awareness level",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "Green (no warning)"
+              },
+              {
+                "value": "1",
+                "newvalue": "Yellow"
+              },
+              {
+                "value": "2",
+                "newvalue": "Orange"
+              },
+              {
+                "value": "3",
+                "newvalue": "Red"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abcde3",
+            "name": "IPMA weather type",
+            "mappings": [
+              {
+                "value": "0",
+                "newvalue": "No information"
+              },
+              {
+                "value": "1",
+                "newvalue": "Clear sky"
+              },
+              {
+                "value": "2",
+                "newvalue": "Partly cloudy"
+              },
+              {
+                "value": "3",
+                "newvalue": "Sunny intervals"
+              },
+              {
+                "value": "4",
+                "newvalue": "Cloudy"
+              },
+              {
+                "value": "5",
+                "newvalue": "Cloudy (high cloud)"
+              },
+              {
+                "value": "6",
+                "newvalue": "Showers/rain"
+              },
+              {
+                "value": "7",
+                "newvalue": "Light showers/rain"
+              },
+              {
+                "value": "8",
+                "newvalue": "Heavy showers/rain"
+              },
+              {
+                "value": "9",
+                "newvalue": "Rain/showers"
+              },
+              {
+                "value": "10",
+                "newvalue": "Light rain"
+              },
+              {
+                "value": "11",
+                "newvalue": "Heavy rain/showers"
+              },
+              {
+                "value": "12",
+                "newvalue": "Intermittent rain"
+              },
+              {
+                "value": "13",
+                "newvalue": "Intermittent light rain"
+              },
+              {
+                "value": "14",
+                "newvalue": "Intermittent heavy rain"
+              },
+              {
+                "value": "15",
+                "newvalue": "Drizzle"
+              },
+              {
+                "value": "16",
+                "newvalue": "Mist"
+              },
+              {
+                "value": "17",
+                "newvalue": "Fog"
+              },
+              {
+                "value": "18",
+                "newvalue": "Snow"
+              },
+              {
+                "value": "19",
+                "newvalue": "Thunderstorms"
+              },
+              {
+                "value": "20",
+                "newvalue": "Showers and thunderstorms"
+              },
+              {
+                "value": "21",
+                "newvalue": "Hail"
+              },
+              {
+                "value": "22",
+                "newvalue": "Frost"
+              },
+              {
+                "value": "23",
+                "newvalue": "Rain and thunderstorms"
+              },
+              {
+                "value": "24",
+                "newvalue": "Convective clouds"
+              },
+              {
+                "value": "25",
+                "newvalue": "Partly cloudy (with very cloudy intervals)"
+              },
+              {
+                "value": "26",
+                "newvalue": "Fog"
+              },
+              {
+                "value": "27",
+                "newvalue": "Cloudy"
+              },
+              {
+                "value": "28",
+                "newvalue": "Snow showers"
+              },
+              {
+                "value": "29",
+                "newvalue": "Rain and snow"
+              },
+              {
+                "value": "30",
+                "newvalue": "Rain and snow"
+              }
+            ]
+          },
+          {
+            "uuid": "5e8f3a91c2d44b7896a0123456abcde2",
+            "name": "IPMA wind speed class",
+            "mappings": [
+              {
+                "value": "1",
+                "newvalue": "Weak"
+              },
+              {
+                "value": "2",
+                "newvalue": "Moderate"
+              },
+              {
+                "value": "3",
+                "newvalue": "Strong"
+              },
+              {
+                "value": "4",
+                "newvalue": "Very strong"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
